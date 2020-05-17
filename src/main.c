@@ -51,12 +51,18 @@ void vDemoTask(void *pvParameters)
 {
     //String
     static char my_string[100];
+    static char text_below[100];
+    static char text_above[100];
+    static char keyboard_count[100];
     static int my_strings_width = 0;
+    static int text_below_width = 0;
+    static int text_above_width = 0;
+    static int keyboard_count_width = 0;
 
     //Creating Circle.
-    static signed short circle_x=SCREEN_WIDTH / 4;
-    static signed short circle_y=SCREEN_HEIGHT / 4;
-    static signed short radius=20;
+    static signed short circle_x=(SCREEN_WIDTH / 2) - 50;
+    static signed short circle_y=SCREEN_HEIGHT  / 2;
+    static signed short radius=25;
     my_circle_t* circ=create_circ(circle_x,circle_y,radius,Red);
 
 
@@ -68,14 +74,14 @@ void vDemoTask(void *pvParameters)
     static my_triangle_t tri;
 
     coord_t p_1;
-    p_1.x=320;
-    p_1.y=200;
+    p_1.x=SCREEN_WIDTH / 2;
+    p_1.y=SCREEN_HEIGHT / 2;
     coord_t p_2;
-    p_2.x=250;
-    p_2.y=200;
+    p_2.x=(SCREEN_WIDTH / 2) + 50 ;
+    p_2.y=SCREEN_HEIGHT / 2;
     coord_t p_3;
-    p_3.x=p_2.x+(p_1.x-p_2.x)/2;
-    p_3.y=100;
+    p_3.x=p_2.x+(p_1.x-p_2.x) / 2;
+    p_3.y=(SCREEN_HEIGHT / 2) - 50;
     
     coord_t points[3] ={p_1,p_2,p_3};
 
@@ -83,9 +89,9 @@ void vDemoTask(void *pvParameters)
     tri.color = Green;
 
     //Creating Square.
-    static signed short side=60;
-    static signed short box_x=SCREEN_WIDTH*3/ 4;
-    static signed short box_y=SCREEN_HEIGHT*3/4;
+    static signed short side=40;
+    static signed short box_x=(SCREEN_WIDTH /2) + 80;
+    static signed short box_y=SCREEN_HEIGHT / 2;
     my_square_t* box=create_box(box_x,box_y,side,TUMBlue);
 
 
@@ -109,12 +115,35 @@ void vDemoTask(void *pvParameters)
         tumDrawClear(White); // Clear screen
 
         sprintf(my_string,"Press Q to quit"); // Formatting string into char array.
+	sprintf(text_below,"This is just some random text");
+	sprintf(text_above,"This text is moving");
+	sprintf(keyboard_count,"A : B : C : D : ");
 
         if (!tumGetTextSize((char *)my_string,&my_strings_width, NULL))
             tumDrawText(my_string,SCREEN_WIDTH / 2 -
                         my_strings_width / 2,
                         SCREEN_HEIGHT*3 / 4 - DEFAULT_FONT_SIZE / 2,
                         Navy);
+
+	if (!tumGetTextSize((char *)text_below,&text_below_width, NULL))
+            tumDrawText(text_below,SCREEN_WIDTH / 2 -
+                        text_below_width / 2,
+                        SCREEN_HEIGHT*5 / 6 - DEFAULT_FONT_SIZE / 2,
+                        Olive);
+
+       if (!tumGetTextSize((char *)text_above,&text_above_width, NULL))
+            tumDrawText(text_above,SCREEN_WIDTH / 2 -
+                        text_above_width / 2,
+                        SCREEN_HEIGHT / 8 - DEFAULT_FONT_SIZE / 2,
+                        Gray);
+
+       if (!tumGetTextSize((char *)keyboard_count,&keyboard_count_width, NULL))
+            tumDrawText(keyboard_count,SCREEN_WIDTH / 6 -
+                        keyboard_count_width / 2,
+                        SCREEN_HEIGHT / 15 - DEFAULT_FONT_SIZE / 2,
+                        Black);
+
+
         
         if (!tumDrawCircle(circ->x_pos,circ->y_pos,circ->radius,circ->color)){} //Draw Circle.
 
