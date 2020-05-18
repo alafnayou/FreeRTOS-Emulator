@@ -59,6 +59,10 @@ void vDemoTask(void *pvParameters)
     static int text_above_width = 0;
     static int keyboard_count_width = 0;
 
+    //Variables used for moving
+    static int wheel;
+    static int angle;
+
     //Creating Circle.
     static signed short circle_x=(SCREEN_WIDTH / 2) - 50;
     static signed short circle_y=SCREEN_HEIGHT  / 2;
@@ -94,7 +98,9 @@ void vDemoTask(void *pvParameters)
     static signed short box_y=SCREEN_HEIGHT / 2;
     my_square_t* box=create_box(box_x,box_y,side,TUMBlue);
 
-
+    //Initializing Moving Variables
+    wheel = 0;
+    angle = 0;
 
     tumDrawBindThread();
 
@@ -122,20 +128,25 @@ void vDemoTask(void *pvParameters)
         if (!tumGetTextSize((char *)my_string,&my_strings_width, NULL))
             tumDrawText(my_string,SCREEN_WIDTH / 2 -
                         my_strings_width / 2,
-                        SCREEN_HEIGHT*3 / 4 - DEFAULT_FONT_SIZE / 2,
+                        SCREEN_HEIGHT*7 / 8 - DEFAULT_FONT_SIZE / 2,
                         Navy);
 
 	if (!tumGetTextSize((char *)text_below,&text_below_width, NULL))
             tumDrawText(text_below,SCREEN_WIDTH / 2 -
                         text_below_width / 2,
-                        SCREEN_HEIGHT*5 / 6 - DEFAULT_FONT_SIZE / 2,
+                        SCREEN_HEIGHT*6 / 8 - DEFAULT_FONT_SIZE / 2,
                         Olive);
 
        if (!tumGetTextSize((char *)text_above,&text_above_width, NULL))
-            tumDrawText(text_above,SCREEN_WIDTH / 2 -
-                        text_above_width / 2,
+            tumDrawText(text_above,wheel,
                         SCREEN_HEIGHT / 8 - DEFAULT_FONT_SIZE / 2,
                         Gray);
+
+       wheel+=10;
+       
+       if ((wheel+text_above_width) >= SCREEN_WIDTH){
+	    wheel=0;
+       }  
 
        if (!tumGetTextSize((char *)keyboard_count,&keyboard_count_width, NULL))
             tumDrawText(keyboard_count,SCREEN_WIDTH / 6 -
@@ -145,11 +156,19 @@ void vDemoTask(void *pvParameters)
 
 
         
-        if (!tumDrawCircle(circ->x_pos,circ->y_pos,circ->radius,circ->color)){} //Draw Circle.
+        if (!tumDrawCircle((circ->x_pos) + 50*cos(angle-180),(circ->y_pos) + 50*sin(angle-180),circ->radius,
+	    circ->color)){} //Draw rotating Circle.
 
         if (!tumDrawTriangle(tri.points,tri.color)){} //Draw Triangle.
         
-        if(!tumDrawFilledBox(box->x_pos,box->y_pos,box->width,box->height,box->color)){} //Draw Box.
+        if(!tumDrawFilledBox((box->x_pos) + 50*cos(angle-180) ,(box->y_pos) + 50*sin(angle-180),
+           box->width,box->height,box->color)){} //Draw rotating Box.
+
+	angle++;
+
+	if (angle >= 361){
+	    angle = 0;
+	}	
 
         tumDrawUpdateScreen(); // Refresh the screen to draw string
 
