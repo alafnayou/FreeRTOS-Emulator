@@ -64,7 +64,7 @@ void vDemoTask(void *pvParameters)
     static int angle;
 
     //Creating Circle.
-    static signed short circle_x=(SCREEN_WIDTH / 2) - 50;
+    static signed short circle_x=(SCREEN_WIDTH / 2) - 75;
     static signed short circle_y=SCREEN_HEIGHT  / 2;
     static signed short radius=25;
     my_circle_t* circ=create_circ(circle_x,circle_y,radius,Red);
@@ -78,13 +78,13 @@ void vDemoTask(void *pvParameters)
     static my_triangle_t tri;
 
     coord_t p_1;
-    p_1.x=SCREEN_WIDTH / 2;
+    p_1.x=(SCREEN_WIDTH / 2) - 25 ;
     p_1.y=SCREEN_HEIGHT / 2;
     coord_t p_2;
-    p_2.x=(SCREEN_WIDTH / 2) + 50 ;
+    p_2.x=(SCREEN_WIDTH / 2) + 25 ;
     p_2.y=SCREEN_HEIGHT / 2;
     coord_t p_3;
-    p_3.x=p_2.x+(p_1.x-p_2.x) / 2;
+    p_3.x=SCREEN_WIDTH / 2;
     p_3.y=(SCREEN_HEIGHT / 2) - 50;
     
     coord_t points[3] ={p_1,p_2,p_3};
@@ -93,8 +93,8 @@ void vDemoTask(void *pvParameters)
     tri.color = Green;
 
     //Creating Square.
-    static signed short side=40;
-    static signed short box_x=(SCREEN_WIDTH /2) + 80;
+    static signed short side=50;
+    static signed short box_x=(SCREEN_WIDTH /2) + 50;
     static signed short box_y=SCREEN_HEIGHT / 2;
     my_square_t* box=create_box(box_x,box_y,side,TUMBlue);
 
@@ -156,16 +156,17 @@ void vDemoTask(void *pvParameters)
 
 
         
-        if (!tumDrawCircle((circ->x_pos) + 50*cos(angle-180),(circ->y_pos) + 50*sin(angle-180),circ->radius,
+        if (!tumDrawCircle((circ->x_pos) + 75*cos(180 - angle),(circ->y_pos) + 75*sin(180 - angle),circ->radius,
 	    circ->color)){} //Draw rotating Circle.
 
         if (!tumDrawTriangle(tri.points,tri.color)){} //Draw Triangle.
         
-        if(!tumDrawFilledBox((box->x_pos) + 50*cos(angle-180) ,(box->y_pos) + 50*sin(angle-180),
+        if(!tumDrawFilledBox((box->x_pos) + 75*cos(180 - angle) ,(box->y_pos) + 75*sin(180 - angle),
            box->width,box->height,box->color)){} //Draw rotating Box.
 
 	angle++;
-
+	box->x_pos=(SCREEN_WIDTH / 2 ) +50 ;
+	box->y_pos=(SCREEN_HEIGHT / 2 ) ;
 	if (angle >= 361){
 	    angle = 0;
 	}	
