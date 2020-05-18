@@ -156,18 +156,16 @@ void vDemoTask(void *pvParameters)
 
 
         
-        if (!tumDrawCircle((circ->x_pos) + 75*cos(180 - angle),(circ->y_pos) + 75*sin(180 - angle),circ->radius,
+        if (!tumDrawCircle((SCREEN_WIDTH/2) + 60*cos(angle-180),(SCREEN_HEIGHT/2) +10+ 60*sin(angle-180),circ->radius,
 	    circ->color)){} //Draw rotating Circle.
 
         if (!tumDrawTriangle(tri.points,tri.color)){} //Draw Triangle.
         
-        if(!tumDrawFilledBox((box->x_pos) + 75*cos(180 - angle) ,(box->y_pos) + 75*sin(180 - angle),
+        if(!tumDrawFilledBox((SCREEN_WIDTH/2) - 10 + 60*cos(angle+180) ,(SCREEN_HEIGHT/2) + 60*sin(angle+180),
            box->width,box->height,box->color)){} //Draw rotating Box.
 
-	angle++;
-	box->x_pos=(SCREEN_WIDTH / 2 ) +50 ;
-	box->y_pos=(SCREEN_HEIGHT / 2 ) ;
-	if (angle >= 361){
+	angle = angle + 0.1;
+	if (angle == 360.1){
 	    angle = 0;
 	}	
 
