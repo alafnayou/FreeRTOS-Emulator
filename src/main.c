@@ -60,8 +60,14 @@ void vDemoTask(void *pvParameters)
     static int keyboard_count_width = 0;
 
     //Variables used for moving
-    static int wheel;
-    static float angle;
+    static int wheel = 0;
+    static float angle = 0;
+
+    //Variables for Counting Button Presses
+    static int ButtonA = 0;
+    static int ButtonB = 0;
+    static int ButtonC = 0;
+    static int ButtonD = 0;
 
     //Creating Circle.
     static signed short circle_x=(SCREEN_WIDTH / 2) - 75;
@@ -98,9 +104,6 @@ void vDemoTask(void *pvParameters)
     static signed short box_y=(SCREEN_HEIGHT / 2) - 50 ;
     my_square_t* box=create_box(box_x,box_y,side,TUMBlue);
 
-    //Initializing Moving Variables
-    wheel = 0;
-    angle = 0;
 
     tumDrawBindThread();
 
@@ -115,6 +118,22 @@ void vDemoTask(void *pvParameters)
             { 
                 exit(EXIT_SUCCESS);
             }
+	    else if (buttons.buttons[KEYCODE(A)])	
+	 	ButtonA++;
+            else if (buttons.buttons[KEYCODE(B)])
+		ButtonB++;
+            else if (buttons.buttons[KEYCODE(C)])
+		ButtonC++;
+            else if (buttons.buttons[KEYCODE(D)])
+		ButtonD++;
+            else if (tumEventGetMouseRight())
+            {
+		ButtonA = 0;
+		ButtonB = 0;
+		ButtonC = 0;
+		ButtonD = 0;
+            }
+
             xSemaphoreGive(buttons.lock);
         }
 
@@ -123,7 +142,8 @@ void vDemoTask(void *pvParameters)
         sprintf(my_string,"Press Q to quit"); // Formatting string into char array.
 	sprintf(text_below,"This is just some random text");
 	sprintf(text_above,"This text is moving");
-	sprintf(keyboard_count,"A : B : C : D : ");
+	sprintf(keyboard_count, "A: %d | B: %d | C: %d | D: %d",
+		ButtonA,ButtonB,ButtonC,ButtonD);
 
         if (!tumGetTextSize((char *)my_string,&my_strings_width, NULL))
             tumDrawText(my_string,SCREEN_WIDTH / 2 -
@@ -142,21 +162,21 @@ void vDemoTask(void *pvParameters)
                         SCREEN_HEIGHT / 8 - DEFAULT_FONT_SIZE / 2,
                         Gray);
 
-       wheel+=10;
+       wheel+=5;
        
        if ((wheel+text_above_width) >= SCREEN_WIDTH){
 	    wheel=0;
        }  
 
        if (!tumGetTextSize((char *)keyboard_count,&keyboard_count_width, NULL))
-            tumDrawText(keyboard_count,SCREEN_WIDTH / 6 -
+            tumDrawText(keyboard_count,SCREEN_WIDTH / 4 -
                         keyboard_count_width / 2,
                         SCREEN_HEIGHT / 15 - DEFAULT_FONT_SIZE / 2,
                         Black);
 
 
         
-        if (!tumDrawCircle((SCREEN_WIDTH / 2)-75*cos(angle),(SCREEN_HEIGHT / 2)-25*sin(angle+90) ,circ->radius,
+        if (!tumDrawCircle((SCREEN_WIDTH / 2)-75*cos(angle),(SCREEN_HEIGHT / 2)-75*sin(angle) ,circ->radius,
 	    circ->color)){} //Draw rotating Circle.
 
         if (!tumDrawTriangle(tri.points,tri.color)){} //Draw Triangle.
