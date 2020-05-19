@@ -61,7 +61,7 @@ void vDemoTask(void *pvParameters)
 
     //Variables used for moving
     static int wheel;
-    static int angle;
+    static float angle;
 
     //Creating Circle.
     static signed short circle_x=(SCREEN_WIDTH / 2) - 75;
@@ -95,7 +95,7 @@ void vDemoTask(void *pvParameters)
     //Creating Square.
     static signed short side=50;
     static signed short box_x=(SCREEN_WIDTH /2) + 50;
-    static signed short box_y=SCREEN_HEIGHT / 2;
+    static signed short box_y=(SCREEN_HEIGHT / 2) - 50 ;
     my_square_t* box=create_box(box_x,box_y,side,TUMBlue);
 
     //Initializing Moving Variables
@@ -156,12 +156,12 @@ void vDemoTask(void *pvParameters)
 
 
         
-        if (!tumDrawCircle((SCREEN_WIDTH/2) + 60*cos(angle-180),(SCREEN_HEIGHT/2) +10+ 60*sin(angle-180),circ->radius,
+        if (!tumDrawCircle((SCREEN_WIDTH / 2)-75*cos(angle),(SCREEN_HEIGHT / 2)-25*sin(angle+90) ,circ->radius,
 	    circ->color)){} //Draw rotating Circle.
 
         if (!tumDrawTriangle(tri.points,tri.color)){} //Draw Triangle.
         
-        if(!tumDrawFilledBox((SCREEN_WIDTH/2) - 10 + 60*cos(angle+180) ,(SCREEN_HEIGHT/2) + 60*sin(angle+180),
+        if(!tumDrawFilledBox((SCREEN_WIDTH / 2) + 75*cos(angle),(SCREEN_HEIGHT / 2) - 75*sin(angle),
            box->width,box->height,box->color)){} //Draw rotating Box.
 
 	angle = angle + 0.1;
