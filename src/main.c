@@ -29,11 +29,14 @@
 
 
 #define KEYCODE(CHAR) SDL_SCANCODE_##CHAR
-static TaskHandle_t DrawShapesTask = NULL;
+
+static TaskHandle_t DrawShapesTaskHandle = NULL;
+static TaskHandle_t vSwapBuffersTaskHandle = NULL;
 
 static QueueHandle_t StateQueue = NULL;
 static SemaphoreHandle_t DrawSignal = NULL;
 static SemaphoreHandle_t ScreenLock = NULL;
+
 
 typedef struct buttons_buffer {
 	unsigned char buttons[SDL_NUM_SCANCODES];
@@ -41,6 +44,27 @@ typedef struct buttons_buffer {
 } buttons_buffer_t;
 
 static buttons_buffer_t buttons = { 0 };
+
+void vSwapBuffers(void *pvParameters)
+{
+    TickType_t xLastWakeTime;
+    xLastWakeTime = xTaskGetTickCount();
+    const TickType_t frameratePeriod = 20;
+
+    tumDrawBindThread(); // Setup Rendering handle with correct GL context
+
+    while (1) {
+        if (xSemaphoreTake(ScreenLock, portMAX_DELAY) == pdTRUE) {
+            tumDrawUpdateScreen();
+            tumEventFetchEvents();
+            xSemaphoreGive(ScreenLock);
+            xSemaphoreGive(DrawSignal);
+            vTaskDelayUntil(&xLastWakeTime,
+                            pdMS_TO_TICKS(frameratePeriod));
+        }
+    }
+}
+
 
 void xGetButtonInput(void)
 {
@@ -83,7 +107,7 @@ void vDrawShapesTask(void *pvParameters)
 	tumDrawBindThread();
 
 	while (1) {
-		if (DrawSignal) {
+		/*if (xSemaphoreTake*/ if (DrawSignal) /*, portMAX_DELAY) == pdTRUE)*/ {
 			// tumEventFetchEvents();
 			//int MouseX = tumEventGetMouseX();
 			//int MouseY = tumEventGetMouseY();
@@ -122,23 +146,23 @@ void vDrawShapesTask(void *pvParameters)
 
 				tumDrawClear(White); // Clear screen
 
-				p_1.x = (SCREEN_WIDTH / 2) - 12.5;
-				p_1.y = (SCREEN_HEIGHT / 2) + 12.5;
-				p_2.x = (SCREEN_WIDTH / 2) + 12.5;
-				p_2.y = (SCREEN_HEIGHT / 2) + 12.5;
+				p_1.x = (SCREEN_WIDTH / 2) - 15;
+				p_1.y = (SCREEN_HEIGHT / 2) + 15;
+				p_2.x = (SCREEN_WIDTH / 2) + 15;
+				p_2.y = (SCREEN_HEIGHT / 2) + 15;
 				p_3.x = (SCREEN_WIDTH / 2);
-				p_3.y = (SCREEN_HEIGHT / 2) - 25;
+				p_3.y = (SCREEN_HEIGHT / 2) - 15;
 				coord_t points[3] = { p_1, p_2, p_3 };
 				tri.points = points;
 				tri.color = Green;
 				if (!tumDrawTriangle(tri.points, tri.color)) {} //Draw Triangle.
 
-				if (!tumDrawFilledBox((SCREEN_WIDTH / 2) + 25*cos(angle),
-				      	(SCREEN_HEIGHT / 2) - 25* sin(angle),
-				      25, 25,TUMBlue)) {} //Draw rotating square.	
+				if (!tumDrawFilledBox((SCREEN_WIDTH / 2)+ 60*cos(angle),
+				      	(SCREEN_HEIGHT / 2) + 60*sin(angle),
+				      	25,25,TUMBlue)){} //Draw rotating square.	
 
-				if (!tumDrawCircle((SCREEN_WIDTH / 2) - 37.5 * cos(angle),
-				   	  	(SCREEN_HEIGHT / 2) - 37.5 * sin(angle),
+				if (!tumDrawCircle( (SCREEN_WIDTH/2) - 40*cos(angle-180),
+				   	  	(SCREEN_HEIGHT/2) - 40*sin(angle-180),
 				   	  12.5, Red))  {} //Draw rotating Circle.	
 
 				angle = angle + 0.1;
@@ -156,12 +180,12 @@ void vDrawShapesTask(void *pvParameters)
 				    	(SCREEN_WIDTH / 2) - (Qstring_width / 2),
 				    	(SCREEN_HEIGHT * 7 / 8) -
 					    (DEFAULT_FONT_SIZE / 2),
-				    Navy);
+				    	Navy);
 
 				if (!tumGetTextSize((char *)text_below, &text_below_width,NULL))
 					tumDrawText(text_below,
 				    	(SCREEN_WIDTH / 2) - (text_below_width / 2),
-				    	(SCREEN_HEIGHT * (6/8)) -
+				    	(SCREEN_HEIGHT * 6 / 8) -
 					    (DEFAULT_FONT_SIZE / 2),
 				    	Olive);
 
@@ -183,11 +207,11 @@ void vDrawShapesTask(void *pvParameters)
 				    	(SCREEN_HEIGHT / 15) - (DEFAULT_FONT_SIZE / 2),
 				    	Black);
 						
-				xSemaphoreGive(ScreenLock);
+				xSemaphoreGive(ScreenLock); 
 				tumDrawUpdateScreen(); // Refresh the screen to draw string
 
-				vTaskDelay(
-					(TickType_t)1000); // Basic sleep of 1000 milliseconds
+				//vTaskDelay(
+					// (TickType_t)1000); // Basic sleep of 1000 milliseconds
 			}		
 		}
 	}
@@ -227,11 +251,11 @@ int main(int argc, char *argv[])
         goto err_draw_signal;
     }
 
-    ScreenLock = xSemaphoreCreateMutex();
+     ScreenLock = xSemaphoreCreateMutex();
     if (!ScreenLock) {
         PRINT_ERROR("Failed to create screen lock");
         goto err_screen_lock;
-    }
+    } 
 
 	// Message sending
     StateQueue = xQueueCreate(STATE_QUEUE_LENGTH, sizeof(unsigned char));
@@ -239,9 +263,15 @@ int main(int argc, char *argv[])
         PRINT_ERROR("Could not open state queue");
         goto err_state_queue;
     }
+	
+	if (xTaskCreate(vSwapBuffers, "BufferSwapTask",mainGENERIC_STACK_SIZE * 2, NULL,
+			configMAX_PRIORITIES,vSwapBuffersTaskHandle) != pdPASS) {
+        //PRINT_TASK_ERROR("BufferSwapTask");
+        //goto err_bufferswap;
+	}
 
 	if (xTaskCreate(vDrawShapesTask, "DrawShapesTask", mainGENERIC_STACK_SIZE * 2, NULL,
-			mainGENERIC_PRIORITY, &DrawShapesTask) != pdPASS) {
+			configMAX_PRIORITIES - 1, &DrawShapesTaskHandle) != pdPASS) {
 		goto err_drawshapestask;
 	}
 
@@ -251,6 +281,8 @@ int main(int argc, char *argv[])
 
 err_drawshapestask:
 	vSemaphoreDelete(buttons.lock);
+//err_bufferswap:
+    //vTaskDelete(StateMachine);
 err_buttons_lock:
 	tumSoundExit();
 err_state_queue:
