@@ -83,22 +83,23 @@ void vDrawShapesTask(void *pvParameters)
 	tumDrawBindThread();
 
 	while (1) {
-		tumEventFetchEvents();
-		signed short MouseX = tumEventGetMouseX();
-		signed short MouseY = tumEventGetMouseY();
-		xGetButtonInput();
+		if (DrawSignal) {
+			// tumEventFetchEvents();
+			//int MouseX = tumEventGetMouseX();
+			//int MouseY = tumEventGetMouseY();
 
-		if (xSemaphoreTake(ScreenLock, portMAX_DELAY) == pdTRUE) {
+			if (xSemaphoreTake(DrawSignal, portMAX_DELAY) == pdTRUE) {
 
-			while (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
+				xGetButtonInput();
+				xSemaphoreTake(ScreenLock, portMAX_DELAY);
 
 				if (buttons.buttons[KEYCODE(Q)]) {
 					exit(EXIT_SUCCESS);
 				}
 				//else if (buttons.buttons[KEYCODE(E)]) { //Equiv to SDL_SCANCODE_E
 					/* xQueueSend (StateQueue,&next_state_control,100); */
-				}
-				 if (buttons.buttons[KEYCODE(A)]) {
+			
+				if (buttons.buttons[KEYCODE(A)]) {
 					ButtonA++;
 				}
 				else if (buttons.buttons[KEYCODE(B)]) {
@@ -117,82 +118,84 @@ void vDrawShapesTask(void *pvParameters)
 					ButtonD = 0;
 				}	
 
-			xSemaphoreGive(buttons.lock);
-			}		
+					
 
-		tumDrawClear(White); // Clear screen
+				tumDrawClear(White); // Clear screen
 
-			p_1.x = (MouseX) + (SCREEN_WIDTH / 2) - 12.5;
-			p_1.y = (MouseY) + (SCREEN_HEIGHT / 2) + 12.5;
-			p_2.x = (MouseX) + (SCREEN_WIDTH / 2) + 12.5;
-			p_2.y = (MouseY) + (SCREEN_HEIGHT / 2) + 12.5;
-			p_3.x = (MouseX) + (SCREEN_WIDTH / 2);
-			p_3.y = (MouseY) + (SCREEN_HEIGHT / 2) - 25;
-			coord_t points[3] = { p_1, p_2, p_3 };
-			tri.points = points;
-			tri.color = Green;
-		if (!tumDrawTriangle(tri.points, tri.color)) {} //Draw Triangle.
+				p_1.x = (SCREEN_WIDTH / 2) - 12.5;
+				p_1.y = (SCREEN_HEIGHT / 2) + 12.5;
+				p_2.x = (SCREEN_WIDTH / 2) + 12.5;
+				p_2.y = (SCREEN_HEIGHT / 2) + 12.5;
+				p_3.x = (SCREEN_WIDTH / 2);
+				p_3.y = (SCREEN_HEIGHT / 2) - 25;
+				coord_t points[3] = { p_1, p_2, p_3 };
+				tri.points = points;
+				tri.color = Green;
+				if (!tumDrawTriangle(tri.points, tri.color)) {} //Draw Triangle.
 
-		if (!tumDrawFilledBox(MouseX + (SCREEN_WIDTH / 2) + 37,5*cos(angle),
-				      MouseY + (SCREEN_HEIGHT / 2) - 37.5 * sin(angle),
-				      25, TUMBlue)) {} //Draw rotating square.	
+				if (!tumDrawFilledBox((SCREEN_WIDTH / 2) + 25*cos(angle),
+				      	(SCREEN_HEIGHT / 2) - 25* sin(angle),
+				      25, 25,TUMBlue)) {} //Draw rotating square.	
 
-		if (!tumDrawCircle(MouseX + (SCREEN_WIDTH / 2) - 37.5 * cos(angle),
-				   	  MouseY + (SCREEN_HEIGHT / 2) - 37.5 * sin(angle),
+				if (!tumDrawCircle((SCREEN_WIDTH / 2) - 37.5 * cos(angle),
+				   	  	(SCREEN_HEIGHT / 2) - 37.5 * sin(angle),
 				   	  12.5, Red))  {} //Draw rotating Circle.	
 
-		angle = angle + 0.1;
-		if (angle == 360.1) {
-			angle = 0;
-		}
+				angle = angle + 0.1;
+				if (angle == 360.1) {
+					angle = 0;
+				}
 		
-		sprintf(Qstring,"Press Q to quit"); // Formatting string into char array.
-		sprintf(text_below, "Press E to switch states");
-		sprintf(text_above, "This text is moving");
-		sprintf(KeyBoardCountString, "A: %d | B: %d | C: %d | D: %d",ButtonA, ButtonB, ButtonC, ButtonD);
+				sprintf(Qstring,"Press Q to quit"); // Formatting string into char array.
+				sprintf(text_below, "Press E to switch states");
+				sprintf(text_above, "This text is moving");
+				sprintf(KeyBoardCountString, "A: %d | B: %d | C: %d | D: %d",ButtonA, ButtonB, ButtonC, ButtonD);
 
-		if (!tumGetTextSize((char *)Qstring, &Qstring_width, NULL))
-			tumDrawText(Qstring,
-				    MouseX + (SCREEN_WIDTH / 2) - (Qstring_width / 2),
-				    MouseY + (SCREEN_HEIGHT * 7 / 8) -
+				if (!tumGetTextSize((char *)Qstring, &Qstring_width, NULL))
+					tumDrawText(Qstring,
+				    	(SCREEN_WIDTH / 2) - (Qstring_width / 2),
+				    	(SCREEN_HEIGHT * 7 / 8) -
 					    (DEFAULT_FONT_SIZE / 2),
 				    Navy);
 
-		if (!tumGetTextSize((char *)text_below, &text_below_width,NULL))
-			tumDrawText(text_below,
-				    MouseX + (SCREEN_WIDTH / 2) - (text_below_width / 2),
-				    MouseY + (SCREEN_HEIGHT * (6/8)) -
+				if (!tumGetTextSize((char *)text_below, &text_below_width,NULL))
+					tumDrawText(text_below,
+				    	(SCREEN_WIDTH / 2) - (text_below_width / 2),
+				    	(SCREEN_HEIGHT * (6/8)) -
 					    (DEFAULT_FONT_SIZE / 2),
-				    Olive);
+				    	Olive);
 
-		if (!tumGetTextSize((char *)text_above, &text_above_width,NULL))
-			tumDrawText(text_above, 
-					MouseX + wheel,
-				    MouseY + (SCREEN_HEIGHT / 8) - (DEFAULT_FONT_SIZE / 2),
-				    Gray);
+				if (!tumGetTextSize((char *)text_above, &text_above_width,NULL))
+					tumDrawText(text_above, 
+						wheel,
+				    	(SCREEN_HEIGHT / 8) - (DEFAULT_FONT_SIZE / 2),
+				    	Gray);
 		
-		wheel ++;
+				wheel ++;
 
-		if ((wheel + text_above_width) >= SCREEN_WIDTH) {
-			wheel = 0;
+				if ((wheel + text_above_width) >= SCREEN_WIDTH) {
+				wheel = 0;
+				}
+
+				if (!tumGetTextSize((char *)KeyBoardCountString,&KeyBoardCountString_width, NULL))
+						tumDrawText(KeyBoardCountString,
+				    	(SCREEN_WIDTH / 4) - (KeyBoardCountString_width / 2),
+				    	(SCREEN_HEIGHT / 15) - (DEFAULT_FONT_SIZE / 2),
+				    	Black);
+						
+				xSemaphoreGive(ScreenLock);
+				tumDrawUpdateScreen(); // Refresh the screen to draw string
+
+				vTaskDelay(
+					(TickType_t)1000); // Basic sleep of 1000 milliseconds
+			}		
 		}
-
-		if (!tumGetTextSize((char *)KeyBoardCountString,
-				    &KeyBoardCountString_width, NULL))
-			tumDrawText(KeyBoardCountString,
-				    MouseX + (SCREEN_WIDTH / 4) - (KeyBoardCountString_width / 2),
-				    MouseY + (SCREEN_HEIGHT / 15) - (DEFAULT_FONT_SIZE / 2),
-				    Black);
-
-		tumDrawUpdateScreen(); // Refresh the screen to draw string
-
-		vTaskDelay(
-			(TickType_t)1000); // Basic sleep of 1000 milliseconds
 	}
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[]) 
 {
+	
 	char *bin_folder_path = tumUtilGetBinFolderPath(argv[0]);
 
 	printf("Initializing: ");
