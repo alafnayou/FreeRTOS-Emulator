@@ -25,7 +25,15 @@
 #define mainGENERIC_PRIORITY (tskIDLE_PRIORITY)
 #define mainGENERIC_STACK_SIZE ((unsigned short)2560)
 
-static TaskHandle_t DemoTask = NULL;
+#define STATE_QUEUE_LENGTH 1
+
+
+#define KEYCODE(CHAR) SDL_SCANCODE_##CHAR
+static TaskHandle_t DrawShapesTask = NULL;
+
+static QueueHandle_t StateQueue = NULL;
+static SemaphoreHandle_t DrawSignal = NULL;
+static SemaphoreHandle_t ScreenLock = NULL;
 
 typedef struct buttons_buffer {
 	unsigned char buttons[SDL_NUM_SCANCODES];
@@ -42,155 +50,139 @@ void xGetButtonInput(void)
 	}
 }
 
-#define KEYCODE(CHAR) SDL_SCANCODE_##CHAR
 
-void vDemoTask(void *pvParameters)
+void vDrawShapesTask(void *pvParameters)
 {
-	//String
-	static char my_string[100];
+	//Variables for drawing Strings qnd Shapes
+	static char Qstring[100];
+	static char KeyBoardCountString[100];
 	static char text_below[100];
 	static char text_above[100];
-	static char keyboard_count[100];
-	static int my_strings_width = 0;
+	static int Qstring_width = 0;
+	static int KeyBoardCountString_width = 0;
 	static int text_below_width = 0;
 	static int text_above_width = 0;
-	static int keyboard_count_width = 0;
+	static my_triangle_t tri;
+	coord_t p_1;
+	coord_t p_2;
+	coord_t p_3;
 
-	//Variables used for moving
+	/* const unsigned char next_state_control = NEXT_TASK; //Allowing transition to next state */
+
+	//Variables used for moving shapes
 	static int wheel = 0;
-	static float angle = 0;
+	static float angle = 0; //Rotation angle
 
 	//Variables for Counting Button Presses
 	static int ButtonA = 0;
 	static int ButtonB = 0;
 	static int ButtonC = 0;
 	static int ButtonD = 0;
-
-	//Creating Circle.
-	static signed short circle_x = (SCREEN_WIDTH / 2) - 75;
-	static signed short circle_y = SCREEN_HEIGHT / 2;
-	static signed short radius = 25;
-	my_circle_t *circ = create_circ(circle_x, circle_y, radius, Red);
-
-	//Creating Triangle.
-
-	//static signed short tri_x=SCREEN_WIDTH/2;
-	//static signed short tri_y=SCREEN_HEIGHT/2;
-	//my_triangle_t* tri=create_tri(tri_x,tri_y,Green);
-	static my_triangle_t tri;
-
-	coord_t p_1;
-	p_1.x = (SCREEN_WIDTH / 2) - 25;
-	p_1.y = SCREEN_HEIGHT / 2;
-	coord_t p_2;
-	p_2.x = (SCREEN_WIDTH / 2) + 25;
-	p_2.y = SCREEN_HEIGHT / 2;
-	coord_t p_3;
-	p_3.x = SCREEN_WIDTH / 2;
-	p_3.y = (SCREEN_HEIGHT / 2) - 50;
-
-	coord_t points[3] = { p_1, p_2, p_3 };
-
-	tri.points = points;
-	tri.color = Green;
-
-	//Creating Square.
-	static signed short side = 50;
-	static signed short box_x = (SCREEN_WIDTH / 2) + 50;
-	static signed short box_y = (SCREEN_HEIGHT / 2) - 50;
-	my_square_t *box = create_box(box_x, box_y, side, TUMBlue);
+	
 
 	tumDrawBindThread();
 
 	while (1) {
 		tumEventFetchEvents();
+		signed short MouseX = tumEventGetMouseX();
+		signed short MouseY = tumEventGetMouseY();
 		xGetButtonInput();
 
-		if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
-			if (buttons.buttons[KEYCODE(
-				    Q)]) // Equiv to SDL_SCANCODE_Q
-			{
-				exit(EXIT_SUCCESS);
-			} else if (buttons.buttons[KEYCODE(A)]) {
-				printf("clicked A\n");
-				ButtonA++;
-			} else if (buttons.buttons[KEYCODE(B)]) {
-				printf("clicked B\n");
-				ButtonB++;
-			} else if (buttons.buttons[KEYCODE(C)]) {
-				ButtonC++;
-			} else if (buttons.buttons[KEYCODE(D)]) {
-				ButtonD++;
-			} else if (tumEventGetMouseRight()) {
-				ButtonA = 0;
-				ButtonB = 0;
-				ButtonC = 0;
-				ButtonD = 0;
-			}
+		if (xSemaphoreTake(ScreenLock, portMAX_DELAY) == pdTRUE) {
+
+			while (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
+
+				if (buttons.buttons[KEYCODE(Q)]) {
+					exit(EXIT_SUCCESS);
+				}
+				//else if (buttons.buttons[KEYCODE(E)]) { //Equiv to SDL_SCANCODE_E
+					/* xQueueSend (StateQueue,&next_state_control,100); */
+				}
+				 if (buttons.buttons[KEYCODE(A)]) {
+					ButtonA++;
+				}
+				else if (buttons.buttons[KEYCODE(B)]) {
+					ButtonB++;
+				}
+				else if (buttons.buttons[KEYCODE(C)]) {
+					ButtonC++;
+				} 
+				else if (buttons.buttons[KEYCODE(D)]) {
+					ButtonD++;
+				} 
+				else if (tumEventGetMouseRight()) {
+					ButtonA = 0;
+					ButtonB = 0;
+					ButtonC = 0;
+					ButtonD = 0;
+				}	
 
 			xSemaphoreGive(buttons.lock);
-		}
+			}		
 
 		tumDrawClear(White); // Clear screen
 
-		sprintf(my_string,
-			"Press Q to quit"); // Formatting string into char array.
-		sprintf(text_below, "This is just some random text");
-		sprintf(text_above, "This text is moving");
-		sprintf(keyboard_count, "A: %d | B: %d | C: %d | D: %d",
-			ButtonA, ButtonB, ButtonC, ButtonD);
+			p_1.x = (MouseX) + (SCREEN_WIDTH / 2) - 12.5;
+			p_1.y = (MouseY) + (SCREEN_HEIGHT / 2) + 12.5;
+			p_2.x = (MouseX) + (SCREEN_WIDTH / 2) + 12.5;
+			p_2.y = (MouseY) + (SCREEN_HEIGHT / 2) + 12.5;
+			p_3.x = (MouseX) + (SCREEN_WIDTH / 2);
+			p_3.y = (MouseY) + (SCREEN_HEIGHT / 2) - 25;
+			coord_t points[3] = { p_1, p_2, p_3 };
+			tri.points = points;
+			tri.color = Green;
+		if (!tumDrawTriangle(tri.points, tri.color)) {} //Draw Triangle.
 
-		if (!tumGetTextSize((char *)my_string, &my_strings_width, NULL))
-			tumDrawText(my_string,
-				    SCREEN_WIDTH / 2 - my_strings_width / 2,
-				    SCREEN_HEIGHT * 7 / 8 -
-					    DEFAULT_FONT_SIZE / 2,
-				    Navy);
+		if (!tumDrawFilledBox(MouseX + (SCREEN_WIDTH / 2) + 37,5*cos(angle),
+				      MouseY + (SCREEN_HEIGHT / 2) - 37.5 * sin(angle),
+				      25, TUMBlue)) {} //Draw rotating square.	
 
-		if (!tumGetTextSize((char *)text_below, &text_below_width,
-				    NULL))
-			tumDrawText(text_below,
-				    SCREEN_WIDTH / 2 - text_below_width / 2,
-				    SCREEN_HEIGHT * 6 / 8 -
-					    DEFAULT_FONT_SIZE / 2,
-				    Olive);
-
-		if (!tumGetTextSize((char *)text_above, &text_above_width,
-				    NULL))
-			tumDrawText(text_above, wheel,
-				    SCREEN_HEIGHT / 8 - DEFAULT_FONT_SIZE / 2,
-				    Gray);
-
-		wheel += 5;
-
-		if ((wheel + text_above_width) >= SCREEN_WIDTH) {
-			wheel = 0;
-		}
-
-		if (!tumGetTextSize((char *)keyboard_count,
-				    &keyboard_count_width, NULL))
-			tumDrawText(keyboard_count,
-				    SCREEN_WIDTH / 4 - keyboard_count_width / 2,
-				    SCREEN_HEIGHT / 15 - DEFAULT_FONT_SIZE / 2,
-				    Black);
-
-		if (!tumDrawCircle((SCREEN_WIDTH / 2) - 75 * cos(angle),
-				   (SCREEN_HEIGHT / 2) - 75 * sin(angle),
-				   circ->radius, circ->color)) {
-		} //Draw rotating Circle.
-
-		if (!tumDrawTriangle(tri.points, tri.color)) {
-		} //Draw Triangle.
-
-		if (!tumDrawFilledBox((SCREEN_WIDTH / 2) + 75 * cos(angle),
-				      (SCREEN_HEIGHT / 2) - 75 * sin(angle),
-				      box->width, box->height, box->color)) {
-		} //Draw rotating Box.
+		if (!tumDrawCircle(MouseX + (SCREEN_WIDTH / 2) - 37.5 * cos(angle),
+				   	  MouseY + (SCREEN_HEIGHT / 2) - 37.5 * sin(angle),
+				   	  12.5, Red))  {} //Draw rotating Circle.	
 
 		angle = angle + 0.1;
 		if (angle == 360.1) {
 			angle = 0;
 		}
+		
+		sprintf(Qstring,"Press Q to quit"); // Formatting string into char array.
+		sprintf(text_below, "Press E to switch states");
+		sprintf(text_above, "This text is moving");
+		sprintf(KeyBoardCountString, "A: %d | B: %d | C: %d | D: %d",ButtonA, ButtonB, ButtonC, ButtonD);
+
+		if (!tumGetTextSize((char *)Qstring, &Qstring_width, NULL))
+			tumDrawText(Qstring,
+				    MouseX + (SCREEN_WIDTH / 2) - (Qstring_width / 2),
+				    MouseY + (SCREEN_HEIGHT * 7 / 8) -
+					    (DEFAULT_FONT_SIZE / 2),
+				    Navy);
+
+		if (!tumGetTextSize((char *)text_below, &text_below_width,NULL))
+			tumDrawText(text_below,
+				    MouseX + (SCREEN_WIDTH / 2) - (text_below_width / 2),
+				    MouseY + (SCREEN_HEIGHT * (6/8)) -
+					    (DEFAULT_FONT_SIZE / 2),
+				    Olive);
+
+		if (!tumGetTextSize((char *)text_above, &text_above_width,NULL))
+			tumDrawText(text_above, 
+					MouseX + wheel,
+				    MouseY + (SCREEN_HEIGHT / 8) - (DEFAULT_FONT_SIZE / 2),
+				    Gray);
+		
+		wheel ++;
+
+		if ((wheel + text_above_width) >= SCREEN_WIDTH) {
+			wheel = 0;
+		}
+
+		if (!tumGetTextSize((char *)KeyBoardCountString,
+				    &KeyBoardCountString_width, NULL))
+			tumDrawText(KeyBoardCountString,
+				    MouseX + (SCREEN_WIDTH / 4) - (KeyBoardCountString_width / 2),
+				    MouseY + (SCREEN_HEIGHT / 15) - (DEFAULT_FONT_SIZE / 2),
+				    Black);
 
 		tumDrawUpdateScreen(); // Refresh the screen to draw string
 
@@ -226,19 +218,44 @@ int main(int argc, char *argv[])
 		goto err_buttons_lock;
 	}
 
-	if (xTaskCreate(vDemoTask, "DemoTask", mainGENERIC_STACK_SIZE * 2, NULL,
-			mainGENERIC_PRIORITY, &DemoTask) != pdPASS) {
-		goto err_demotask;
+	DrawSignal = xSemaphoreCreateBinary(); // Screen buffer locking
+    if (!DrawSignal) {
+        PRINT_ERROR("Failed to create draw signal");
+        goto err_draw_signal;
+    }
+
+    ScreenLock = xSemaphoreCreateMutex();
+    if (!ScreenLock) {
+        PRINT_ERROR("Failed to create screen lock");
+        goto err_screen_lock;
+    }
+
+	// Message sending
+    StateQueue = xQueueCreate(STATE_QUEUE_LENGTH, sizeof(unsigned char));
+    if (!StateQueue) {
+        PRINT_ERROR("Could not open state queue");
+        goto err_state_queue;
+    }
+
+	if (xTaskCreate(vDrawShapesTask, "DrawShapesTask", mainGENERIC_STACK_SIZE * 2, NULL,
+			mainGENERIC_PRIORITY, &DrawShapesTask) != pdPASS) {
+		goto err_drawshapestask;
 	}
 
 	vTaskStartScheduler();
 
 	return EXIT_SUCCESS;
 
-err_demotask:
+err_drawshapestask:
 	vSemaphoreDelete(buttons.lock);
 err_buttons_lock:
 	tumSoundExit();
+err_state_queue:
+	vSemaphoreDelete(StateQueue);
+err_screen_lock:
+	vSemaphoreDelete(DrawSignal);
+err_draw_signal:
+	vSemaphoreDelete(buttons.lock);
 err_init_audio:
 	tumEventExit();
 err_init_events:
