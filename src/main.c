@@ -26,11 +26,27 @@
 #define mainGENERIC_STACK_SIZE ((unsigned short)2560)
 
 #define STATE_QUEUE_LENGTH 1
+#define STATE_COUNT 3
+
+#define STATE_ONE 0
+#define STATE_TWO 1
+#define STATE_THREE 2
+
+#define NEXT_TASK 0
+#define PREV_TASK 1
+
+#define STARTING_STATE STATE_ONE
+
+#define STATE_DEBOUNCE_DELAY 300
 
 
 #define KEYCODE(CHAR) SDL_SCANCODE_##CHAR
 
-static TaskHandle_t DrawShapesTaskHandle = NULL;
+const unsigned char next_state_signal = NEXT_TASK; //0
+const unsigned char prev_state_signak = PREV_TASK; //1
+
+static TaskHandle_t StateMachineTaskHandle = NULL;
+static TaskHandle_t vDrawShapesTaskHandle = NULL;
 static TaskHandle_t vSwapBuffersTaskHandle = NULL;
 
 static QueueHandle_t StateQueue = NULL;
@@ -44,6 +60,78 @@ typedef struct buttons_buffer {
 } buttons_buffer_t;
 
 static buttons_buffer_t buttons = { 0 };
+
+void changeState(volatile unsigned char *state, unsigned char forwards)
+{
+    switch (forwards) {
+        case NEXT_TASK:
+            if (*state == STATE_COUNT - 1) {
+                *state = 0;
+            }
+            else {
+                (*state)++;
+            }
+            break;
+        case PREV_TASK:
+            if (*state == 0) {
+                *state = STATE_COUNT - 1;
+            }
+            else {
+                (*state)--;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+void basicSequentialStateMachine(void *pvParameters)
+{
+    unsigned char current_state = STARTING_STATE; // Default state
+    unsigned char state_changed =
+        1; // Only re-evaluate state if it has changed
+    unsigned char input = 0;
+
+    //const int state_change_period = STATE_DEBOUNCE_DELAY;
+
+    // TickType_t last_change = xTaskGetTickCount();
+
+    while (1) {
+        if (state_changed) {
+            goto initial_state;
+        }
+
+        // Handle state machine input
+        if (StateQueue)
+            if (xQueueReceive(StateQueue, &input, portMAX_DELAY) == pdTRUE) {
+                if (input == NEXT_TASK) {
+                    changeState(&current_state, input);
+                    state_changed = 1;   
+                } else if (input == PREV_TASK) {
+					changeState(&current_state, input);
+					state_changed = 1;
+				}
+			}
+
+initial_state:
+        // Handle current state
+        if (state_changed) {
+            switch (current_state) {
+                case STATE_ONE:
+                    vTaskResume(vDrawShapesTaskHandle);
+					state_changed = 0;
+                    break;
+                case STATE_TWO:
+                    break;
+				case STATE_THREE:
+					break;
+                default:
+                    break;
+            }
+            state_changed = 0;
+        }
+    }
+}
 
 void vSwapBuffers(void *pvParameters)
 {
@@ -82,20 +170,23 @@ void vDrawShapesTask(void *pvParameters)
 	static char KeyBoardCountString[100];
 	static char text_below[100];
 	static char text_above[100];
+	static char Axes[100];
 	static int Qstring_width = 0;
 	static int KeyBoardCountString_width = 0;
 	static int text_below_width = 0;
 	static int text_above_width = 0;
+	static int Axes_width = 0;
 	static my_triangle_t tri;
 	coord_t p_1;
 	coord_t p_2;
 	coord_t p_3;
 
-	/* const unsigned char next_state_control = NEXT_TASK; //Allowing transition to next state */
-
 	//Variables used for moving shapes
 	static int wheel = 0;
 	static float angle = 0; //Rotation angle
+	static unsigned short MouseX = 0;
+	static unsigned short MouseY = 0;
+
 
 	//Variables for Counting Button Presses
 	static int ButtonA = 0;
@@ -103,66 +194,68 @@ void vDrawShapesTask(void *pvParameters)
 	static int ButtonC = 0;
 	static int ButtonD = 0;
 	
-
 	tumDrawBindThread();
 
 	while (1) {
-		/*if (xSemaphoreTake*/ if (DrawSignal) /*, portMAX_DELAY) == pdTRUE)*/ {
-			// tumEventFetchEvents();
-			//int MouseX = tumEventGetMouseX();
-			//int MouseY = tumEventGetMouseY();
-
+		if (DrawSignal) {	
 			if (xSemaphoreTake(DrawSignal, portMAX_DELAY) == pdTRUE) {
 
 				xGetButtonInput();
 				xSemaphoreTake(ScreenLock, portMAX_DELAY);
+				
+				if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
+				
+					if (buttons.buttons[KEYCODE(Q)]) {
+						exit(EXIT_SUCCESS);
+					}
+					if (buttons.buttons[KEYCODE(E)]) { 
+						xQueueSend(StateQueue,&next_state_signal,100);
+					}
+					//if (tumEventGetMouseLeft()) {
+						//MouseX = tumEventGetMouseX;
+						//MouseY = tumEventGetMouseY();
+					//}
+					if (buttons.buttons[KEYCODE(A)]) {
+						ButtonA++;
+					}
+					else if (buttons.buttons[KEYCODE(B)]) {
+						ButtonB++;
+					}
+					else if (buttons.buttons[KEYCODE(C)]) {
+						ButtonC++;
+					} 
+					else if (buttons.buttons[KEYCODE(D)]) {
+						ButtonD++;
+					} 
+					else if (tumEventGetMouseRight()) {
+						ButtonA = 0;
+						ButtonB = 0;
+						ButtonC = 0;
+						ButtonD = 0;
+					}	
 
-				if (buttons.buttons[KEYCODE(Q)]) {
-					exit(EXIT_SUCCESS);
+				xSemaphoreGive(buttons.lock);
 				}
-				//else if (buttons.buttons[KEYCODE(E)]) { //Equiv to SDL_SCANCODE_E
-					/* xQueueSend (StateQueue,&next_state_control,100); */
-			
-				if (buttons.buttons[KEYCODE(A)]) {
-					ButtonA++;
-				}
-				else if (buttons.buttons[KEYCODE(B)]) {
-					ButtonB++;
-				}
-				else if (buttons.buttons[KEYCODE(C)]) {
-					ButtonC++;
-				} 
-				else if (buttons.buttons[KEYCODE(D)]) {
-					ButtonD++;
-				} 
-				else if (tumEventGetMouseRight()) {
-					ButtonA = 0;
-					ButtonB = 0;
-					ButtonC = 0;
-					ButtonD = 0;
-				}	
-
-					
 
 				tumDrawClear(White); // Clear screen
 
-				p_1.x = (SCREEN_WIDTH / 2) - 15;
-				p_1.y = (SCREEN_HEIGHT / 2) + 15;
-				p_2.x = (SCREEN_WIDTH / 2) + 15;
-				p_2.y = (SCREEN_HEIGHT / 2) + 15;
-				p_3.x = (SCREEN_WIDTH / 2);
-				p_3.y = (SCREEN_HEIGHT / 2) - 15;
+				p_1.x = tumEventGetMouseX()+(SCREEN_WIDTH / 2) - 15;
+				p_1.y = tumEventGetMouseY()+(SCREEN_HEIGHT / 2) + 15;
+				p_2.x = tumEventGetMouseX()+(SCREEN_WIDTH / 2) + 15;
+				p_2.y = tumEventGetMouseY()+(SCREEN_HEIGHT / 2) + 15;
+				p_3.x = tumEventGetMouseX()+(SCREEN_WIDTH / 2);
+				p_3.y = tumEventGetMouseY()+(SCREEN_HEIGHT / 2) - 15;
 				coord_t points[3] = { p_1, p_2, p_3 };
 				tri.points = points;
 				tri.color = Green;
 				if (!tumDrawTriangle(tri.points, tri.color)) {} //Draw Triangle.
 
-				if (!tumDrawFilledBox((SCREEN_WIDTH / 2)+ 60*cos(angle),
-				      	(SCREEN_HEIGHT / 2) + 60*sin(angle),
+				if (!tumDrawFilledBox(tumEventGetMouseX()+(SCREEN_WIDTH / 2)+ 60*cos(angle),
+				      	tumEventGetMouseY()+(SCREEN_HEIGHT / 2) + 60*sin(angle),
 				      	25,25,TUMBlue)){} //Draw rotating square.	
 
-				if (!tumDrawCircle( (SCREEN_WIDTH/2) - 40*cos(angle-180),
-				   	  	(SCREEN_HEIGHT/2) - 40*sin(angle-180),
+				if (!tumDrawCircle(tumEventGetMouseX()+(SCREEN_WIDTH/2) - 40*cos(angle-180),
+				   	  	tumEventGetMouseY()+(SCREEN_HEIGHT/2) - 40*sin(angle-180),
 				   	  12.5, Red))  {} //Draw rotating Circle.	
 
 				angle = angle + 0.1;
@@ -177,22 +270,22 @@ void vDrawShapesTask(void *pvParameters)
 
 				if (!tumGetTextSize((char *)Qstring, &Qstring_width, NULL))
 					tumDrawText(Qstring,
-				    	(SCREEN_WIDTH / 2) - (Qstring_width / 2),
-				    	(SCREEN_HEIGHT * 7 / 8) -
+				    	tumEventGetMouseX()+(SCREEN_WIDTH / 2) - (Qstring_width / 2),
+				    	tumEventGetMouseY()+(SCREEN_HEIGHT * 7 / 8) -
 					    (DEFAULT_FONT_SIZE / 2),
 				    	Navy);
 
 				if (!tumGetTextSize((char *)text_below, &text_below_width,NULL))
-					tumDrawText(text_below,
-				    	(SCREEN_WIDTH / 2) - (text_below_width / 2),
-				    	(SCREEN_HEIGHT * 6 / 8) -
+						tumDrawText(text_below,
+				    	tumEventGetMouseX()+(SCREEN_WIDTH / 2) - (text_below_width / 2),
+				    	tumEventGetMouseY()+(SCREEN_HEIGHT * 6 / 8) -
 					    (DEFAULT_FONT_SIZE / 2),
 				    	Olive);
 
 				if (!tumGetTextSize((char *)text_above, &text_above_width,NULL))
-					tumDrawText(text_above, 
-						wheel,
-				    	(SCREEN_HEIGHT / 8) - (DEFAULT_FONT_SIZE / 2),
+						tumDrawText(text_above, 
+						tumEventGetMouseX() + wheel,
+				    	tumEventGetMouseY() + (SCREEN_HEIGHT / 8) - (DEFAULT_FONT_SIZE / 2),
 				    	Gray);
 		
 				wheel ++;
@@ -203,15 +296,12 @@ void vDrawShapesTask(void *pvParameters)
 
 				if (!tumGetTextSize((char *)KeyBoardCountString,&KeyBoardCountString_width, NULL))
 						tumDrawText(KeyBoardCountString,
-				    	(SCREEN_WIDTH / 4) - (KeyBoardCountString_width / 2),
-				    	(SCREEN_HEIGHT / 15) - (DEFAULT_FONT_SIZE / 2),
+				    	tumEventGetMouseX()+(SCREEN_WIDTH / 6) - (KeyBoardCountString_width / 2),
+				    	tumEventGetMouseY()+(SCREEN_HEIGHT / 20) - (DEFAULT_FONT_SIZE / 2),
 				    	Black);
 						
 				xSemaphoreGive(ScreenLock); 
 				tumDrawUpdateScreen(); // Refresh the screen to draw string
-
-				//vTaskDelay(
-					// (TickType_t)1000); // Basic sleep of 1000 milliseconds
 			}		
 		}
 	}
@@ -251,7 +341,7 @@ int main(int argc, char *argv[])
         goto err_draw_signal;
     }
 
-     ScreenLock = xSemaphoreCreateMutex();
+    ScreenLock = xSemaphoreCreateMutex();
     if (!ScreenLock) {
         PRINT_ERROR("Failed to create screen lock");
         goto err_screen_lock;
@@ -266,12 +356,11 @@ int main(int argc, char *argv[])
 	
 	if (xTaskCreate(vSwapBuffers, "BufferSwapTask",mainGENERIC_STACK_SIZE * 2, NULL,
 			configMAX_PRIORITIES,vSwapBuffersTaskHandle) != pdPASS) {
-        //PRINT_TASK_ERROR("BufferSwapTask");
-        //goto err_bufferswap;
+        goto err_bufferswap;
 	}
 
 	if (xTaskCreate(vDrawShapesTask, "DrawShapesTask", mainGENERIC_STACK_SIZE * 2, NULL,
-			configMAX_PRIORITIES - 1, &DrawShapesTaskHandle) != pdPASS) {
+			configMAX_PRIORITIES - 1, &vDrawShapesTaskHandle) != pdPASS) {
 		goto err_drawshapestask;
 	}
 
@@ -281,8 +370,8 @@ int main(int argc, char *argv[])
 
 err_drawshapestask:
 	vSemaphoreDelete(buttons.lock);
-//err_bufferswap:
-    //vTaskDelete(StateMachine);
+err_bufferswap:
+    vTaskDelete(StateMachineTaskHandle);
 err_buttons_lock:
 	tumSoundExit();
 err_state_queue:
