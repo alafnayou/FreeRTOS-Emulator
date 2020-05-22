@@ -42,12 +42,17 @@
 
 #define KEYCODE(CHAR) SDL_SCANCODE_##CHAR
 
+static uint8_t Circle1Hz;
+static uint8_t Circle2Hz;
+
 const unsigned char next_state_signal = NEXT_TASK; //0
 const unsigned char prev_state_signak = PREV_TASK; //1
 
 static TaskHandle_t StateMachineTaskHandle = NULL;
 static TaskHandle_t vDrawShapesTaskHandle = NULL;
 static TaskHandle_t vSwapBuffersTaskHandle = NULL;
+static TaskHandle_t vBlinkingCircle1HzTaskHandle = NULL;
+static TaskHandle_t vBlinkingCircle2HzTaskHandle = NULL;
 
 static QueueHandle_t StateQueue = NULL;
 static SemaphoreHandle_t DrawSignal = NULL;
@@ -60,6 +65,9 @@ typedef struct buttons_buffer {
 } buttons_buffer_t;
 
 static buttons_buffer_t buttons = { 0 };
+
+//StaticTask_t xTaskBuffer;
+//StackType_t xStack[ mainGENERIC_STACK_SIZE ]; 
 
 void changeState(volatile unsigned char *state, unsigned char forwards)
 {
@@ -118,10 +126,14 @@ initial_state:
         if (state_changed) {
             switch (current_state) {
                 case STATE_ONE:
+					vTaskSuspend(vBlinkingCircle1HzTaskHandle);
+					vTaskSuspend(vBlinkingCircle2HzTaskHandle);
                     vTaskResume(vDrawShapesTaskHandle);
-					state_changed = 0;
                     break;
                 case STATE_TWO:
+					vTaskSuspend(vDrawShapesTaskHandle);
+					vTaskResume(vBlinkingCircle2HzTaskHandle);
+					vTaskResume(vBlinkingCircle1HzTaskHandle);
                     break;
 				case STATE_THREE:
 					break;
@@ -165,17 +177,17 @@ void xGetButtonInput(void)
 
 void vDrawShapesTask(void *pvParameters)
 {
-	//Variables for drawing Strings qnd Shapes
+	//Variables for drawing Strings and Shapes
 	static char Qstring[100];
 	static char KeyBoardCountString[100];
 	static char text_below[100];
 	static char text_above[100];
-	static char Axes[100];
+	static char Axis_String[100];
 	static int Qstring_width = 0;
 	static int KeyBoardCountString_width = 0;
 	static int text_below_width = 0;
 	static int text_above_width = 0;
-	static int Axes_width = 0;
+	static int Axis_String_width = 0;
 	static my_triangle_t tri;
 	coord_t p_1;
 	coord_t p_2;
@@ -184,9 +196,6 @@ void vDrawShapesTask(void *pvParameters)
 	//Variables used for moving shapes
 	static int wheel = 0;
 	static float angle = 0; //Rotation angle
-	static unsigned short MouseX = 0;
-	static unsigned short MouseY = 0;
-
 
 	//Variables for Counting Button Presses
 	static int ButtonA = 0;
@@ -211,10 +220,7 @@ void vDrawShapesTask(void *pvParameters)
 					if (buttons.buttons[KEYCODE(E)]) { 
 						xQueueSend(StateQueue,&next_state_signal,100);
 					}
-					//if (tumEventGetMouseLeft()) {
-						//MouseX = tumEventGetMouseX;
-						//MouseY = tumEventGetMouseY();
-					//}
+
 					if (buttons.buttons[KEYCODE(A)]) {
 						ButtonA++;
 					}
@@ -256,7 +262,7 @@ void vDrawShapesTask(void *pvParameters)
 
 				if (!tumDrawCircle(tumEventGetMouseX()+(SCREEN_WIDTH/2) - 40*cos(angle-180),
 				   	  	tumEventGetMouseY()+(SCREEN_HEIGHT/2) - 40*sin(angle-180),
-				   	  12.5, Red))  {} //Draw rotating Circle.	
+				   	  	12.5, Red))  {} //Draw rotating Circle.	
 
 				angle = angle + 0.1;
 				if (angle == 360.1) {
@@ -267,7 +273,8 @@ void vDrawShapesTask(void *pvParameters)
 				sprintf(text_below, "Press E to switch states");
 				sprintf(text_above, "This text is moving");
 				sprintf(KeyBoardCountString, "A: %d | B: %d | C: %d | D: %d",ButtonA, ButtonB, ButtonC, ButtonD);
-
+				sprintf(Axis_String, "Axis 1: %5d | Axis 2: %5d", tumEventGetMouseX(), tumEventGetMouseY());
+				
 				if (!tumGetTextSize((char *)Qstring, &Qstring_width, NULL))
 					tumDrawText(Qstring,
 				    	tumEventGetMouseX()+(SCREEN_WIDTH / 2) - (Qstring_width / 2),
@@ -299,6 +306,12 @@ void vDrawShapesTask(void *pvParameters)
 				    	tumEventGetMouseX()+(SCREEN_WIDTH / 6) - (KeyBoardCountString_width / 2),
 				    	tumEventGetMouseY()+(SCREEN_HEIGHT / 20) - (DEFAULT_FONT_SIZE / 2),
 				    	Black);
+
+				if (!tumGetTextSize((char *)Axis_String,&Axis_String_width, NULL))
+						tumDrawText(Axis_String,
+						tumEventGetMouseX()+ (SCREEN_WIDTH / 6) - (Axis_String_width / 2),
+						tumEventGetMouseY()+ (SCREEN_HEIGHT / 20) + 15 -(DEFAULT_FONT_SIZE / 2),
+						Black);
 						
 				xSemaphoreGive(ScreenLock); 
 				tumDrawUpdateScreen(); // Refresh the screen to draw string
@@ -306,6 +319,38 @@ void vDrawShapesTask(void *pvParameters)
 		}
 	}
 }
+
+//2hz static
+void vBlinkingCircle2HzTask(void *pvParameters) {
+
+		while (1) {
+
+	    Circle2Hz = 1 ;
+		vTaskDelay(250 / portTICK_PERIOD_MS);
+		Circle2Hz = 0 ;
+		if (!tumDrawCircle((SCREEN_WIDTH / 2) - 40,(SCREEN_HEIGHT / 2),20, Olive))  {}
+		vTaskDelay(250 / portTICK_PERIOD_MS);
+
+	}
+
+}
+//1hz dynamic
+void vBlinkingCircle1HzTask(void *pvParameters) {
+
+
+	while (1) {
+
+		Circle1Hz = 1;
+		vTaskDelay(500 / portTICK_PERIOD_MS);
+		Circle1Hz = 0;
+		if (!tumDrawCircle((SCREEN_WIDTH / 2) + 40,(SCREEN_HEIGHT / 2),20,Green))  {}
+		vTaskDelay(500 / portTICK_PERIOD_MS);
+
+	}
+
+}
+
+
 
 int main(int argc, char *argv[]) 
 {
@@ -363,6 +408,14 @@ int main(int argc, char *argv[])
 			configMAX_PRIORITIES - 1, &vDrawShapesTaskHandle) != pdPASS) {
 		goto err_drawshapestask;
 	}
+	xTaskCreate(vBlinkingCircle2HzTask, "BlinkingCircle2HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
+			configMAX_PRIORITIES - 1, &vBlinkingCircle2HzTaskHandle) ;
+	xTaskCreate(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
+			configMAX_PRIORITIES - 2, &vBlinkingCircle1HzTaskHandle) ;
+	
+    // vBlinkingCircle1HzTaskHandle= xTaskCreateStatic(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask",
+		//mainGENERIC_STACK_SIZE,NULL, configMAX_PRIORITIES - 2,xStack, &xTaskBuffer);
+		
 
 	vTaskStartScheduler();
 
