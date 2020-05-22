@@ -24,16 +24,17 @@
 
 #define mainGENERIC_PRIORITY (tskIDLE_PRIORITY)
 #define mainGENERIC_STACK_SIZE ((unsigned short)2560)
+#define STACK_SIZE 200
 
 #define STATE_QUEUE_LENGTH 1
 #define STATE_COUNT 3
 
-#define STATE_ONE 0
-#define STATE_TWO 1
-#define STATE_THREE 2
+#define STATE_ONE 1
+#define STATE_TWO 2
+#define STATE_THREE 3
 
-#define NEXT_TASK 0
-#define PREV_TASK 1
+#define NEXT_TASK 1
+#define PREV_TASK 2
 
 #define STARTING_STATE STATE_ONE
 
@@ -67,25 +68,26 @@ typedef struct buttons_buffer {
 static buttons_buffer_t buttons = { 0 };
 
 //StaticTask_t xTaskBuffer;
-//StackType_t xStack[ mainGENERIC_STACK_SIZE ]; 
+//StackType_t xStack[ STACK_SIZE ]; 
+
 
 void changeState(volatile unsigned char *state, unsigned char forwards)
 {
     switch (forwards) {
-        case NEXT_TASK:
-            if (*state == STATE_COUNT - 1) {
+        case 0:
+            if (*state == 0) {
+                *state = STATE_COUNT;
+            }
+            else {
+                (*state)--;
+            }
+            break;
+        case 1:
+            if (*state == STATE_COUNT) {
                 *state = 0;
             }
             else {
                 (*state)++;
-            }
-            break;
-        case PREV_TASK:
-            if (*state == 0) {
-                *state = STATE_COUNT - 1;
-            }
-            else {
-                (*state)--;
             }
             break;
         default:
@@ -113,10 +115,10 @@ void basicSequentialStateMachine(void *pvParameters)
         if (StateQueue)
             if (xQueueReceive(StateQueue, &input, portMAX_DELAY) == pdTRUE) {
                 if (input == NEXT_TASK) {
-                    changeState(&current_state, input);
+                    changeState(&current_state, 1);
                     state_changed = 1;   
                 } else if (input == PREV_TASK) {
-					changeState(&current_state, input);
+					changeState(&current_state, 0);
 					state_changed = 1;
 				}
 			}
@@ -129,18 +131,21 @@ initial_state:
 					vTaskSuspend(vBlinkingCircle1HzTaskHandle);
 					vTaskSuspend(vBlinkingCircle2HzTaskHandle);
                     vTaskResume(vDrawShapesTaskHandle);
+					state_changed = 0;
                     break;
                 case STATE_TWO:
 					vTaskSuspend(vDrawShapesTaskHandle);
 					vTaskResume(vBlinkingCircle2HzTaskHandle);
 					vTaskResume(vBlinkingCircle1HzTaskHandle);
-                    break;
+                    state_changed = 0;
+					break;
 				case STATE_THREE:
+					state_changed = 0;
 					break;
                 default:
                     break;
             }
-            state_changed = 0;
+            //state_changed = 0;
         }
     }
 }
@@ -177,6 +182,7 @@ void xGetButtonInput(void)
 
 void vDrawShapesTask(void *pvParameters)
 {
+	const unsigned char next_state_signal = NEXT_TASK;
 	//Variables for drawing Strings and Shapes
 	static char Qstring[100];
 	static char KeyBoardCountString[100];
@@ -219,19 +225,24 @@ void vDrawShapesTask(void *pvParameters)
 					}
 					if (buttons.buttons[KEYCODE(E)]) { 
 						xQueueSend(StateQueue,&next_state_signal,100);
+						buttons.buttons[KEYCODE(E)] = 0;
 					}
 
 					if (buttons.buttons[KEYCODE(A)]) {
 						ButtonA++;
+						buttons.buttons[KEYCODE(A)] = 0;
 					}
 					else if (buttons.buttons[KEYCODE(B)]) {
 						ButtonB++;
+						buttons.buttons[KEYCODE(B)] = 0;
 					}
 					else if (buttons.buttons[KEYCODE(C)]) {
 						ButtonC++;
+						buttons.buttons[KEYCODE(C)] = 0;
 					} 
 					else if (buttons.buttons[KEYCODE(D)]) {
 						ButtonD++;
+						buttons.buttons[KEYCODE(D)] = 0;
 					} 
 					else if (tumEventGetMouseRight()) {
 						ButtonA = 0;
@@ -245,23 +256,23 @@ void vDrawShapesTask(void *pvParameters)
 
 				tumDrawClear(White); // Clear screen
 
-				p_1.x = tumEventGetMouseX()+(SCREEN_WIDTH / 2) - 15;
-				p_1.y = tumEventGetMouseY()+(SCREEN_HEIGHT / 2) + 15;
-				p_2.x = tumEventGetMouseX()+(SCREEN_WIDTH / 2) + 15;
-				p_2.y = tumEventGetMouseY()+(SCREEN_HEIGHT / 2) + 15;
-				p_3.x = tumEventGetMouseX()+(SCREEN_WIDTH / 2);
-				p_3.y = tumEventGetMouseY()+(SCREEN_HEIGHT / 2) - 15;
+				p_1.x = tumEventGetMouseX() / 4+(SCREEN_WIDTH / 2) - 15;
+				p_1.y = tumEventGetMouseY() / 4+(SCREEN_HEIGHT / 2) + 15;
+				p_2.x = tumEventGetMouseX() / 4+(SCREEN_WIDTH / 2) + 15;
+				p_2.y = tumEventGetMouseY() / 4+(SCREEN_HEIGHT / 2) + 15;
+				p_3.x = tumEventGetMouseX() / 4+(SCREEN_WIDTH / 2);
+				p_3.y = tumEventGetMouseY() / 4+(SCREEN_HEIGHT / 2) - 15;
 				coord_t points[3] = { p_1, p_2, p_3 };
 				tri.points = points;
 				tri.color = Green;
 				if (!tumDrawTriangle(tri.points, tri.color)) {} //Draw Triangle.
 
-				if (!tumDrawFilledBox(tumEventGetMouseX()+(SCREEN_WIDTH / 2)+ 60*cos(angle),
-				      	tumEventGetMouseY()+(SCREEN_HEIGHT / 2) + 60*sin(angle),
+				if (!tumDrawFilledBox(tumEventGetMouseX() / 4+(SCREEN_WIDTH / 2)+ 60*cos(angle),
+				      	tumEventGetMouseY() / 4+(SCREEN_HEIGHT / 2) + 60*sin(angle),
 				      	25,25,TUMBlue)){} //Draw rotating square.	
 
-				if (!tumDrawCircle(tumEventGetMouseX()+(SCREEN_WIDTH/2) - 40*cos(angle-180),
-				   	  	tumEventGetMouseY()+(SCREEN_HEIGHT/2) - 40*sin(angle-180),
+				if (!tumDrawCircle(tumEventGetMouseX() / 4+(SCREEN_WIDTH/2) - 40*cos(angle-180),
+				   	  	tumEventGetMouseY() / 4+(SCREEN_HEIGHT/2) - 40*sin(angle-180),
 				   	  	12.5, Red))  {} //Draw rotating Circle.	
 
 				angle = angle + 0.1;
@@ -277,22 +288,22 @@ void vDrawShapesTask(void *pvParameters)
 				
 				if (!tumGetTextSize((char *)Qstring, &Qstring_width, NULL))
 					tumDrawText(Qstring,
-				    	tumEventGetMouseX()+(SCREEN_WIDTH / 2) - (Qstring_width / 2),
-				    	tumEventGetMouseY()+(SCREEN_HEIGHT * 7 / 8) -
+				    	tumEventGetMouseX() / 4+(SCREEN_WIDTH / 2) - (Qstring_width / 2),
+				    	tumEventGetMouseY() / 4+(SCREEN_HEIGHT * 7 / 8) -
 					    (DEFAULT_FONT_SIZE / 2),
 				    	Navy);
 
 				if (!tumGetTextSize((char *)text_below, &text_below_width,NULL))
 						tumDrawText(text_below,
-				    	tumEventGetMouseX()+(SCREEN_WIDTH / 2) - (text_below_width / 2),
-				    	tumEventGetMouseY()+(SCREEN_HEIGHT * 6 / 8) -
+				    	tumEventGetMouseX() / 4+(SCREEN_WIDTH / 2) - (text_below_width / 2),
+				    	tumEventGetMouseY() / 4+(SCREEN_HEIGHT * 6 / 8) -
 					    (DEFAULT_FONT_SIZE / 2),
 				    	Olive);
 
 				if (!tumGetTextSize((char *)text_above, &text_above_width,NULL))
 						tumDrawText(text_above, 
-						tumEventGetMouseX() + wheel,
-				    	tumEventGetMouseY() + (SCREEN_HEIGHT / 8) - (DEFAULT_FONT_SIZE / 2),
+						tumEventGetMouseX() / 4 + wheel,
+				    	tumEventGetMouseY() / 4 + (SCREEN_HEIGHT / 8) - (DEFAULT_FONT_SIZE / 2),
 				    	Gray);
 		
 				wheel ++;
@@ -303,14 +314,14 @@ void vDrawShapesTask(void *pvParameters)
 
 				if (!tumGetTextSize((char *)KeyBoardCountString,&KeyBoardCountString_width, NULL))
 						tumDrawText(KeyBoardCountString,
-				    	tumEventGetMouseX()+(SCREEN_WIDTH / 6) - (KeyBoardCountString_width / 2),
-				    	tumEventGetMouseY()+(SCREEN_HEIGHT / 20) - (DEFAULT_FONT_SIZE / 2),
+				    	tumEventGetMouseX() / 4+(SCREEN_WIDTH / 6) - (KeyBoardCountString_width / 2),
+				    	tumEventGetMouseY() / 4+(SCREEN_HEIGHT / 20) - (DEFAULT_FONT_SIZE / 2),
 				    	Black);
 
 				if (!tumGetTextSize((char *)Axis_String,&Axis_String_width, NULL))
 						tumDrawText(Axis_String,
-						tumEventGetMouseX()+ (SCREEN_WIDTH / 6) - (Axis_String_width / 2),
-						tumEventGetMouseY()+ (SCREEN_HEIGHT / 20) + 15 -(DEFAULT_FONT_SIZE / 2),
+						tumEventGetMouseX() / 4+ (SCREEN_WIDTH / 6) - (Axis_String_width / 2),
+						tumEventGetMouseY() / 4+ (SCREEN_HEIGHT / 20) + 15 -(DEFAULT_FONT_SIZE / 2),
 						Black);
 						
 				xSemaphoreGive(ScreenLock); 
@@ -322,32 +333,88 @@ void vDrawShapesTask(void *pvParameters)
 
 //2hz static
 void vBlinkingCircle2HzTask(void *pvParameters) {
-
-		while (1) {
-
-	    Circle2Hz = 1 ;
-		vTaskDelay(250 / portTICK_PERIOD_MS);
-		Circle2Hz = 0 ;
+	TickType_t xLastWakeTime;
+	const TickType_t xDelay250ms = pdMS_TO_TICKS( 250 );
+	static char Qstring[100];
+	static char text_below[100];
+	static int Qstring_width = 0;
+	static int text_below_width = 0;
+	tumDrawBindThread();
+	while (1) {	
+		xGetButtonInput();
+		if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
+				
+			if (buttons.buttons[KEYCODE(Q)]) {
+				exit(EXIT_SUCCESS);
+			}
+			if (buttons.buttons[KEYCODE(E)]) { 
+				xQueueSend(StateQueue,&next_state_signal,100);
+			}
+			xSemaphoreGive(buttons.lock);
+		}
+		sprintf(Qstring,"Press Q to quit"); // Formatting string into char array.
+		sprintf(text_below, "Press E to switch states");
+		tumDrawClear(White);
 		if (!tumDrawCircle((SCREEN_WIDTH / 2) - 40,(SCREEN_HEIGHT / 2),20, Olive))  {}
-		vTaskDelay(250 / portTICK_PERIOD_MS);
+		if (!tumGetTextSize((char *)Qstring, &Qstring_width, NULL))
+			tumDrawText(Qstring,
+				    	(SCREEN_WIDTH / 2) - (Qstring_width / 2),
+				    	(SCREEN_HEIGHT * 7 / 8) -
+					    (DEFAULT_FONT_SIZE / 2),
+				    	Navy);
 
+		if (!tumGetTextSize((char *)text_below, &text_below_width,NULL))
+			tumDrawText(text_below,
+				    	(SCREEN_WIDTH / 2) - (text_below_width / 2),
+				    	(SCREEN_HEIGHT * 6 / 8) -
+					    (DEFAULT_FONT_SIZE / 2),
+				    	Olive);
+		// vTaskDelayUntil( &xLastWakeTime, xDelay250ms );
+		tumDrawUpdateScreen();
 	}
-
 }
+
 //1hz dynamic
 void vBlinkingCircle1HzTask(void *pvParameters) {
-
-
+	TickType_t xLastWakeTime;
+	const TickType_t xDelay500ms = pdMS_TO_TICKS( 500 );
+	static char Qstring[100];
+	static char text_below[100];
+	static int Qstring_width = 0;
+	static int text_below_width = 0;
+	tumDrawBindThread();
 	while (1) {
+		xGetButtonInput();
+		if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
+				if (buttons.buttons[KEYCODE(Q)]) {
+				exit(EXIT_SUCCESS);
+			}
+			if (buttons.buttons[KEYCODE(E)]) { 
+				xQueueSend(StateQueue,&next_state_signal,100);
+				//buttons.buttons[KEYCODE(E)] = 0;
+			}
+			xSemaphoreGive(buttons.lock);
+		}
+		sprintf(Qstring,"Press Q to quit"); // Formatting string into char array.
+		sprintf(text_below, "Press E to switch states");
+		tumDrawClear(White);
+		if (!tumDrawCircle((SCREEN_WIDTH / 2) + 40,(SCREEN_HEIGHT / 2),20,Black))  {}
+		if (!tumGetTextSize((char *)Qstring, &Qstring_width, NULL))
+			tumDrawText(Qstring,
+				    	(SCREEN_WIDTH / 2) - (Qstring_width / 2),
+				    	(SCREEN_HEIGHT * 7 / 8) -
+					    (DEFAULT_FONT_SIZE / 2),
+				    	Navy);
 
-		Circle1Hz = 1;
-		vTaskDelay(500 / portTICK_PERIOD_MS);
-		Circle1Hz = 0;
-		if (!tumDrawCircle((SCREEN_WIDTH / 2) + 40,(SCREEN_HEIGHT / 2),20,Green))  {}
-		vTaskDelay(500 / portTICK_PERIOD_MS);
-
+		if (!tumGetTextSize((char *)text_below, &text_below_width,NULL))
+			tumDrawText(text_below,
+				    	(SCREEN_WIDTH / 2) - (text_below_width / 2),
+				    	(SCREEN_HEIGHT * 6 / 8) -
+					    (DEFAULT_FONT_SIZE / 2),
+				    	Olive);
+		// vTaskDelayUntil( &xLastWakeTime, xDelay500ms ); 
+		tumDrawUpdateScreen();
 	}
-
 }
 
 
@@ -398,23 +465,27 @@ int main(int argc, char *argv[])
         PRINT_ERROR("Could not open state queue");
         goto err_state_queue;
     }
-	
-	if (xTaskCreate(vSwapBuffers, "BufferSwapTask",mainGENERIC_STACK_SIZE * 2, NULL,
-			configMAX_PRIORITIES,vSwapBuffersTaskHandle) != pdPASS) {
+
+	if (xTaskCreate(basicSequentialStateMachine, "StateMachine",mainGENERIC_STACK_SIZE * 2, NULL,
+                    configMAX_PRIORITIES - 1, StateMachineTaskHandle) != pdPASS) {
+        goto err_statemachine;
+	}
+	if (xTaskCreate(vSwapBuffers, "SwapBuffers",mainGENERIC_STACK_SIZE * 2, NULL,
+					configMAX_PRIORITIES,vSwapBuffersTaskHandle) != pdPASS) {
         goto err_bufferswap;
 	}
 
 	if (xTaskCreate(vDrawShapesTask, "DrawShapesTask", mainGENERIC_STACK_SIZE * 2, NULL,
-			configMAX_PRIORITIES - 1, &vDrawShapesTaskHandle) != pdPASS) {
+			configMAX_PRIORITIES - 2, &vDrawShapesTaskHandle) != pdPASS) {
 		goto err_drawshapestask;
 	}
 	xTaskCreate(vBlinkingCircle2HzTask, "BlinkingCircle2HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
-			configMAX_PRIORITIES - 1, &vBlinkingCircle2HzTaskHandle) ;
+			configMAX_PRIORITIES - 4, &vBlinkingCircle2HzTaskHandle) ;
 	xTaskCreate(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
-			configMAX_PRIORITIES - 2, &vBlinkingCircle1HzTaskHandle) ;
+			configMAX_PRIORITIES - 5, &vBlinkingCircle1HzTaskHandle) ;
 	
-    // vBlinkingCircle1HzTaskHandle= xTaskCreateStatic(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask",
-		//mainGENERIC_STACK_SIZE,NULL, configMAX_PRIORITIES - 2,xStack, &xTaskBuffer);
+    //vBlinkingCircle1HzTaskHandle= xTaskCreateStatic(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask",
+			//STACK_SIZE,NULL, configMAX_PRIORITIES - 5,xStack, &xTaskBuffer);
 		
 
 	vTaskStartScheduler();
@@ -425,6 +496,8 @@ err_drawshapestask:
 	vSemaphoreDelete(buttons.lock);
 err_bufferswap:
     vTaskDelete(StateMachineTaskHandle);
+err_statemachine:
+    vQueueDelete(StateQueue);
 err_buttons_lock:
 	tumSoundExit();
 err_state_queue:
