@@ -339,7 +339,7 @@ void vBlinkingCircle2HzTask(void *pvParameters) {
 	static char text_below[100];
 	static int Qstring_width = 0;
 	static int text_below_width = 0;
-	tumDrawBindThread();
+	// tumDrawBindThread();
 	while (1) {	
 		xGetButtonInput();
 		if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
@@ -349,6 +349,7 @@ void vBlinkingCircle2HzTask(void *pvParameters) {
 			}
 			if (buttons.buttons[KEYCODE(E)]) { 
 				xQueueSend(StateQueue,&next_state_signal,100);
+				buttons.buttons[KEYCODE(E)] = 0;
 			}
 			xSemaphoreGive(buttons.lock);
 		}
@@ -369,7 +370,7 @@ void vBlinkingCircle2HzTask(void *pvParameters) {
 				    	(SCREEN_HEIGHT * 6 / 8) -
 					    (DEFAULT_FONT_SIZE / 2),
 				    	Olive);
-		// vTaskDelayUntil( &xLastWakeTime, xDelay250ms );
+		vTaskDelayUntil( &xLastWakeTime, xDelay250ms );
 		tumDrawUpdateScreen();
 	}
 }
@@ -382,7 +383,6 @@ void vBlinkingCircle1HzTask(void *pvParameters) {
 	static char text_below[100];
 	static int Qstring_width = 0;
 	static int text_below_width = 0;
-	tumDrawBindThread();
 	while (1) {
 		xGetButtonInput();
 		if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
@@ -391,7 +391,7 @@ void vBlinkingCircle1HzTask(void *pvParameters) {
 			}
 			if (buttons.buttons[KEYCODE(E)]) { 
 				xQueueSend(StateQueue,&next_state_signal,100);
-				//buttons.buttons[KEYCODE(E)] = 0;
+				buttons.buttons[KEYCODE(E)] = 0;
 			}
 			xSemaphoreGive(buttons.lock);
 		}
@@ -412,7 +412,7 @@ void vBlinkingCircle1HzTask(void *pvParameters) {
 				    	(SCREEN_HEIGHT * 6 / 8) -
 					    (DEFAULT_FONT_SIZE / 2),
 				    	Olive);
-		// vTaskDelayUntil( &xLastWakeTime, xDelay500ms ); 
+		vTaskDelayUntil( &xLastWakeTime, xDelay500ms ); 
 		tumDrawUpdateScreen();
 	}
 }
