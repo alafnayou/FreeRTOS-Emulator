@@ -333,6 +333,7 @@ void vDrawShapesTask(void *pvParameters)
 
 //2hz static
 void vBlinkingCircle2HzTask(void *pvParameters) {
+	const unsigned char next_state_signal = NEXT_TASK;
 	TickType_t xLastWakeTime;
 	const TickType_t xDelay250ms = pdMS_TO_TICKS( 250 );
 	static char Qstring[100];
@@ -342,7 +343,7 @@ void vBlinkingCircle2HzTask(void *pvParameters) {
 	// tumDrawBindThread();
 	while (1) {	
 		xGetButtonInput();
-		if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
+		if (xSemaphoreTake(buttons.lock, 1000) == pdTRUE) {
 				
 			if (buttons.buttons[KEYCODE(Q)]) {
 				exit(EXIT_SUCCESS);
@@ -377,6 +378,7 @@ void vBlinkingCircle2HzTask(void *pvParameters) {
 
 //1hz dynamic
 void vBlinkingCircle1HzTask(void *pvParameters) {
+	const unsigned char next_state_signal = NEXT_TASK;
 	TickType_t xLastWakeTime;
 	const TickType_t xDelay500ms = pdMS_TO_TICKS( 500 );
 	static char Qstring[100];
@@ -385,7 +387,7 @@ void vBlinkingCircle1HzTask(void *pvParameters) {
 	static int text_below_width = 0;
 	while (1) {
 		xGetButtonInput();
-		if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
+		if (xSemaphoreTake(buttons.lock, 1000) == pdTRUE) {
 				if (buttons.buttons[KEYCODE(Q)]) {
 				exit(EXIT_SUCCESS);
 			}
