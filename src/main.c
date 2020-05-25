@@ -526,11 +526,11 @@ int main(int argc, char *argv[])
 	}
 	xTaskCreate(vBlinkingCircle2HzTask, "BlinkingCircle2HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
 			configMAX_PRIORITIES - 4, &vBlinkingCircle2HzTaskHandle) ;
-	//xTaskCreate(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
-			//configMAX_PRIORITIES - 5, &vBlinkingCircle1HzTaskHandle) ;
+	xTaskCreate(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
+			configMAX_PRIORITIES - 5, &vBlinkingCircle1HzTaskHandle) ;
 	
-    vBlinkingCircle1HzTaskHandle= xTaskCreateStatic(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask",
-			STACK_SIZE,NULL, configMAX_PRIORITIES - 5,xStack, &xTaskBuffer);
+    //vBlinkingCircle1HzTaskHandle= xTaskCreateStatic(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask",
+			//STACK_SIZE,NULL, configMAX_PRIORITIES - 5,xStack, &xTaskBuffer);
 		
 
 	vTaskStartScheduler();
