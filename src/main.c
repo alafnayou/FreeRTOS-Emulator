@@ -43,8 +43,6 @@
 
 #define KEYCODE(CHAR) SDL_SCANCODE_##CHAR
 
-static uint8_t Circle1Hz;
-static uint8_t Circle2Hz;
 
 const unsigned char next_state_signal = NEXT_TASK; //0
 const unsigned char prev_state_signak = PREV_TASK; //1
@@ -67,8 +65,8 @@ typedef struct buttons_buffer {
 
 static buttons_buffer_t buttons = { 0 };
 
-//StaticTask_t xTaskBuffer;
-//StackType_t xStack[ STACK_SIZE ]; 
+StaticTask_t xTaskBuffer;
+StackType_t xStack[ STACK_SIZE ]; 
 
 
 void changeState(volatile unsigned char *state, unsigned char forwards)
@@ -331,7 +329,7 @@ void vDrawShapesTask(void *pvParameters)
 	}
 }
 
-//2hz static
+/*//2hz static
 void vBlinkingCircle2HzTask(void *pvParameters) {
 	const unsigned char next_state_signal = NEXT_TASK;
 	TickType_t xLastWakeTime;
@@ -418,8 +416,53 @@ void vBlinkingCircle1HzTask(void *pvParameters) {
 		tumDrawUpdateScreen();
 	}
 }
+*/
+void vBlinkingCircle2HzTask(void *pvParameters) {
+	while (1) {
+		vTaskDelay(250 / portTICK_PERIOD_MS);
+		if (!tumDrawCircle((SCREEN_WIDTH / 2) - 40,(SCREEN_HEIGHT / 2),20, Olive))  {}
+		vTaskDelay(250 / portTICK_PERIOD_MS);
+	}
+
+}
+void vBlinkingCircle1HzTask(void *pvParameters) {
+	while (1) {
+		vTaskDelay(500 / portTICK_PERIOD_MS);
+		if (!tumDrawCircle((SCREEN_WIDTH / 2) + 40,(SCREEN_HEIGHT / 2),20,Black))  {}
+		vTaskDelay(500 / portTICK_PERIOD_MS);
+	}
+
+}
+void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer,
+StackType_t **ppxIdleTaskStackBuffer,
+uint32_t *pulIdleTaskStackSize )
+{
+
+static StaticTask_t xIdleTaskTCB;
+static StackType_t uxIdleTaskStack[ configMINIMAL_STACK_SIZE ];
+
+*ppxIdleTaskTCBBuffer = &xIdleTaskTCB;
+
+*ppxIdleTaskStackBuffer = uxIdleTaskStack;
+
+*pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
+}
+
+void vApplicationGetTimerTaskMemory( StaticTask_t **ppxTimerTaskTCBBuffer,
+StackType_t **ppxTimerTaskStackBuffer,
+uint32_t *pulTimerTaskStackSize )
+{
+
+static StaticTask_t xTimerTaskTCB;
+static StackType_t uxTimerTaskStack[ configTIMER_TASK_STACK_DEPTH ];
 
 
+*ppxTimerTaskTCBBuffer = &xTimerTaskTCB;
+
+*ppxTimerTaskStackBuffer = uxTimerTaskStack;
+
+*pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
+}
 
 int main(int argc, char *argv[]) 
 {
@@ -483,11 +526,11 @@ int main(int argc, char *argv[])
 	}
 	xTaskCreate(vBlinkingCircle2HzTask, "BlinkingCircle2HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
 			configMAX_PRIORITIES - 4, &vBlinkingCircle2HzTaskHandle) ;
-	xTaskCreate(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
-			configMAX_PRIORITIES - 5, &vBlinkingCircle1HzTaskHandle) ;
+	//xTaskCreate(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
+			//configMAX_PRIORITIES - 5, &vBlinkingCircle1HzTaskHandle) ;
 	
-    //vBlinkingCircle1HzTaskHandle= xTaskCreateStatic(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask",
-			//STACK_SIZE,NULL, configMAX_PRIORITIES - 5,xStack, &xTaskBuffer);
+    vBlinkingCircle1HzTaskHandle= xTaskCreateStatic(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask",
+			STACK_SIZE,NULL, configMAX_PRIORITIES - 5,xStack, &xTaskBuffer);
 		
 
 	vTaskStartScheduler();
