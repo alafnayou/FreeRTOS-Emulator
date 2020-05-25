@@ -48,6 +48,8 @@ static uint8_t Circle2Hz;
 static uint8_t UP_Count = 0;
 static uint8_t DOWN_Count = 0;
 static uint8_t Timer_Count = 0;
+static uint8_t Ticks_Task1 =1;
+static char globalString[100];
 
 
 const unsigned char next_state_signal = NEXT_TASK; 
@@ -63,11 +65,23 @@ static TaskHandle_t vCountingTask1Handle = NULL;
 static TaskHandle_t vCountingTask2Handle = NULL;
 static TaskHandle_t vT1n2ResetTaskHandle = NULL;
 static TaskHandle_t TimerTaskHandle = NULL;
+static TaskHandle_t Task1Handle;
+static TaskHandle_t Task2Handle;
+static TaskHandle_t Task3Handle;
+static TaskHandle_t Task4Handle;
+static TaskHandle_t OutputTaskHandle;
 
 static QueueHandle_t StateQueue = NULL;
 static SemaphoreHandle_t DrawSignal = NULL;
 static SemaphoreHandle_t ScreenLock = NULL;
 static SemaphoreHandle_t vCountingTask2_Semaphore = NULL;
+static SemaphoreHandle_t Task2_CountingSemaphore = NULL;
+static SemaphoreHandle_t Task3_Semaphore = NULL;
+
+TickType_t xLastWakeTime_Task1;
+TickType_t xLastWakeTime_Task2;
+TickType_t xLastWakeTime_Task4;
+TickType_t xLastWakeTime_OutputTask;
 
 
 typedef struct buttons_buffer {
@@ -138,6 +152,7 @@ initial_state:
 					vTaskSuspend(vBlinkingCircle2HzTaskHandle);
 					vTaskSuspend(vDrawShapesTask2Handle);
 					vTaskSuspend(TimerTaskHandle);
+					vTaskSuspend(OutputTaskHandle);
 					vTaskResume(vDrawShapesTask1Handle);
 					state_changed = 0;
                     break;
@@ -146,6 +161,7 @@ initial_state:
 					vTaskSuspend(vCountingTask1Handle);
 					vTaskSuspend(vCountingTask2Handle);
 					vTaskSuspend(vT1n2ResetTaskHandle);
+					vTaskSuspend(OutputTaskHandle);
 					vTaskResume(vBlinkingCircle2HzTaskHandle);
 					vTaskResume(vBlinkingCircle1HzTaskHandle);
 					vTaskResume(TimerTaskHandle);
@@ -471,10 +487,8 @@ void vDrawShapesTask2(void *pvParameters) {
 	const unsigned char next_state_signal = NEXT_TASK;
 	unsigned char UPtaskSignal=0, DOWNtaskSignal=0;
 	static uint8_t Task_Count = 0;
-	//static char FPS_String[100];
 	static char String1[100];
 	static char String2[100];
-	//static int FPS_String_width = 0;
 	static int String1_width = 0;
 	static int String2_width = 0;
 
@@ -560,6 +574,117 @@ void vDrawShapesTask2(void *pvParameters) {
 				// tumDrawUpdateScreen(); // Refresh the screen to draw string
 				vCheckStateInput();
 			}
+		}
+	}
+}
+
+void Task1() {
+	while (1) {
+		strcat(globalString, " 1 |");
+		xLastWakeTime_Task1 = xTaskGetTickCount();
+		vTaskDelayUntil( &xLastWakeTime_Task1, 1 );
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		Ticks_Task1++;
+	}
+}
+
+void Task2() {
+	while (1) {
+		strcat(globalString, " 2 |");
+		xLastWakeTime_Task2 = xTaskGetTickCount();
+		vTaskDelayUntil( &xLastWakeTime_Task2, 2 );
+		vTaskDelay(2000 / portTICK_PERIOD_MS);
+		xSemaphoreGive(Task3_Semaphore);
+	}
+}
+
+void Task3() {
+	while (1) {
+		if (xSemaphoreTake(Task3_Semaphore,portMAX_DELAY) == pdTRUE) {
+			strcat(globalString, " 3 |");
+		}
+	}
+}
+void Task4() {
+	while (1) {
+		strcat(globalString, " 4 |");
+		xLastWakeTime_Task4 = xTaskGetTickCount();
+		vTaskDelayUntil( &xLastWakeTime_Task4,4);
+		vTaskDelay(4000 / portTICK_PERIOD_MS);
+	}
+}
+void OutputTask(void *pvParameters) {
+
+	const unsigned char next_state_signal = NEXT_TASK;
+	static uint8_t x = SCREEN_WIDTH / 6, y = SCREEN_HEIGHT / 15;
+	static char String[100];
+	static int String_width = 0;
+	static int globalString_width = 0;
+
+	Task3_Semaphore = xSemaphoreCreateBinary();
+	xTaskCreate(Task1, "Task1", 1000, NULL, 1, &Task1Handle);
+	xTaskCreate(Task2, "Task2", 1000, NULL, 2, &Task2Handle);
+	xTaskCreate(Task3, "Task3", 1000, NULL, 2, &Task3Handle);
+	xTaskCreate(Task4, "Task4", 1000, NULL, 4, &Task4Handle);
+
+	vTaskSuspend(Task1Handle);
+	vTaskSuspend(Task2Handle);
+	vTaskSuspend(Task3Handle);
+	vTaskSuspend(Task4Handle);
+
+	tumDrawClear(White); // Clear screen
+	xSemaphoreTake(ScreenLock, portMAX_DELAY);
+	//ESPL_DrawLayer();
+	tumDrawClear(White); // Clear screen
+	//gdispDrawString(80, 10, "wait 15 seconds", font1, Black);
+	sprintf(String, "The 15 seconds Count strted");
+	if (!tumGetTextSize((char *)String, &String_width, NULL))
+	tumDrawText(String,(SCREEN_WIDTH * 5/ 6) - (String_width / 2),
+				    	(SCREEN_HEIGHT / 10) -
+					    (DEFAULT_FONT_SIZE / 2),
+				    	Red);
+
+	vTaskResume(Task1Handle);
+	vTaskResume(Task2Handle);
+	vTaskResume(Task3Handle);
+	vTaskResume(Task4Handle);
+
+	while (1) {
+		if (DrawSignal) {
+			if (xSemaphoreTake(DrawSignal, portMAX_DELAY) == pdTRUE) { // Block until screen is ready
+					/*while (xQueueReceive(ButtonQueue, &buttonStatus, 0) == pdTRUE)
+						;
+
+					// State machine input
+					if (buttonStatus.E) {
+					    xQueueSend(StateQueue, &next_state_signal, 100);
+					}*/
+				xGetButtonInput();
+
+				xSemaphoreTake(ScreenLock, portMAX_DELAY);
+				
+				if (Ticks_Task1 <= 15) {
+					sprintf(globalString, "Tick %d: ", Ticks_Task1 );
+					xLastWakeTime_OutputTask = xTaskGetTickCount();
+					vTaskDelayUntil( &xLastWakeTime_OutputTask, 1 );
+					vTaskDelay(1000 / portTICK_PERIOD_MS);
+					//gdispDrawString(x, y, globalString, font1, Black);
+						if (!tumGetTextSize((char *)globalString, &globalString_width, NULL))
+							tumDrawText(globalString, x - (globalString_width / 2),
+				    							y - (DEFAULT_FONT_SIZE / 2),
+				    							Red);
+					y += SCREEN_HEIGHT / 15;
+				}
+
+				if (Ticks_Task1 > 15) {
+					//xQueueSend(StateQueue, &next_state_signal, 100);
+					//if (buttonStatus.E) { xQueueSend(StateQueue, &next_state_signal, 100);}
+					vCheckStateInput();
+				}
+
+				xSemaphoreGive(ScreenLock); 
+				vCheckStateInput();
+			}	
 		}
 	}
 }
