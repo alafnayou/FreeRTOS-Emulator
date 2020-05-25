@@ -169,6 +169,12 @@ initial_state:
                     state_changed = 0;
 					break;
 				case STATE_THREE:
+					vTaskSuspend(vDrawShapesTask1Handle);
+					vTaskSuspend(TimerTaskHandle);
+					vTaskSuspend(vDrawShapesTask2Handle);
+					vTaskSuspend(vBlinkingCircle1HzTaskHandle);
+					vTaskSuspend(vBlinkingCircle2HzTaskHandle);
+					vTaskResume(OutputTaskHandle);
 					state_changed = 0;
 					break;
                 default:
@@ -624,7 +630,7 @@ void OutputTask(void *pvParameters) {
 	Task3_Semaphore = xSemaphoreCreateBinary();
 	xTaskCreate(Task1, "Task1", 1000, NULL, 1, &Task1Handle);
 	xTaskCreate(Task2, "Task2", 1000, NULL, 2, &Task2Handle);
-	xTaskCreate(Task3, "Task3", 1000, NULL, 2, &Task3Handle);
+	xTaskCreate(Task3, "Task3", 1000, NULL, 3, &Task3Handle);
 	xTaskCreate(Task4, "Task4", 1000, NULL, 4, &Task4Handle);
 
 	vTaskSuspend(Task1Handle);
@@ -632,7 +638,7 @@ void OutputTask(void *pvParameters) {
 	vTaskSuspend(Task3Handle);
 	vTaskSuspend(Task4Handle);
 
-	tumDrawClear(White); // Clear screen
+	// tumDrawClear(White); // Clear screen
 	xSemaphoreTake(ScreenLock, portMAX_DELAY);
 	//ESPL_DrawLayer();
 	tumDrawClear(White); // Clear screen
@@ -649,16 +655,11 @@ void OutputTask(void *pvParameters) {
 	vTaskResume(Task3Handle);
 	vTaskResume(Task4Handle);
 
+	xSemaphoreGive(ScreenLock);
+
 	while (1) {
 		if (DrawSignal) {
 			if (xSemaphoreTake(DrawSignal, portMAX_DELAY) == pdTRUE) { // Block until screen is ready
-					/*while (xQueueReceive(ButtonQueue, &buttonStatus, 0) == pdTRUE)
-						;
-
-					// State machine input
-					if (buttonStatus.E) {
-					    xQueueSend(StateQueue, &next_state_signal, 100);
-					}*/
 				xGetButtonInput();
 
 				xSemaphoreTake(ScreenLock, portMAX_DELAY);
@@ -668,17 +669,14 @@ void OutputTask(void *pvParameters) {
 					xLastWakeTime_OutputTask = xTaskGetTickCount();
 					vTaskDelayUntil( &xLastWakeTime_OutputTask, 1 );
 					vTaskDelay(1000 / portTICK_PERIOD_MS);
-					//gdispDrawString(x, y, globalString, font1, Black);
-						if (!tumGetTextSize((char *)globalString, &globalString_width, NULL))
-							tumDrawText(globalString, x - (globalString_width / 2),
+					if (!tumGetTextSize((char *)globalString, &globalString_width, NULL))
+					tumDrawText(globalString, x - (globalString_width / 2),
 				    							y - (DEFAULT_FONT_SIZE / 2),
 				    							Red);
-					y += SCREEN_HEIGHT / 15;
+					y += 30;
 				}
 
 				if (Ticks_Task1 > 15) {
-					//xQueueSend(StateQueue, &next_state_signal, 100);
-					//if (buttonStatus.E) { xQueueSend(StateQueue, &next_state_signal, 100);}
 					vCheckStateInput();
 				}
 
@@ -789,15 +787,18 @@ int main(int argc, char *argv[])
 	xTaskCreate(vBlinkingCircle2HzTask, "BlinkingCircle2HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
 			configMAX_PRIORITIES -3, &vBlinkingCircle2HzTaskHandle) ;
 	xTaskCreate(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
-			configMAX_PRIORITIES -5, &vBlinkingCircle1HzTaskHandle) ;
+			configMAX_PRIORITIES -4, &vBlinkingCircle1HzTaskHandle) ;
     		//vBlinkingCircle1HzTaskHandle= xTaskCreateStatic(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask",
 			//STACK_SIZE,NULL, configMAX_PRIORITIES - 5,xStack, &xTaskBuffer);
 	vCountingTask2_Semaphore = xSemaphoreCreateBinary(); // binary Semaphore for counting task
-    xTaskCreate(vCountingTask1, "CountingTask1", 1000, NULL, 4, &vCountingTask1Handle);
-    xTaskCreate(vCountingTask2, "CountingTask2", 1000, NULL, 5,&vCountingTask2Handle);
-    xTaskCreate(vT1n2ResetTask, "T1n2ResetTask", 1000, NULL, 5,&vT1n2ResetTaskHandle);
+    xTaskCreate(vCountingTask1, "CountingTask1", 1000, NULL, configMAX_PRIORITIES - 5, &vCountingTask1Handle);
+    xTaskCreate(vCountingTask2, "CountingTask2", 1000, NULL, configMAX_PRIORITIES - 6,&vCountingTask2Handle);
+    xTaskCreate(vT1n2ResetTask, "T1n2ResetTask", 1000, NULL, configMAX_PRIORITIES - 6,&vT1n2ResetTaskHandle);
 
     xTaskCreate(TimerTask, "TimerTask", 1000, NULL, configMAX_PRIORITIES-3, &TimerTaskHandle);
+
+	xTaskCreate(OutputTask, "OutputTask", 1000, NULL, configMAX_PRIORITIES - 5, &OutputTaskHandle);
+	vTaskSuspend(OutputTaskHandle);
 
 	vTaskSuspend(vDrawShapesTask1Handle);
 	vTaskSuspend(vDrawShapesTask2Handle);
