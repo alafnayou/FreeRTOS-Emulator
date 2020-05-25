@@ -379,12 +379,11 @@ void vCountingTask1() {
 		if (xTaskNotifyWait(0x00,0xffffffff, &NotifiedValue, portMAX_DELAY) == pdTRUE) {
 			A_Count++ ;
 		}	
-		sprintf(string, "A: %d time", A_Count);
-		//gdispDrawString(0, 10,str_globale, font1, Black);
+		sprintf(string, "A: %d ", A_Count);
 		if (!tumGetTextSize((char *)string, &string_width, NULL))
 			tumDrawText(string,
 				    	(SCREEN_WIDTH / 6) - (string_width / 2),
-				    	(SCREEN_HEIGHT * 9 / 10) -
+				    	(SCREEN_HEIGHT * 8 / 10) -
 					    (DEFAULT_FONT_SIZE / 2),
 				    	Blue);
 
@@ -476,6 +475,7 @@ void vDrawShapesTask2(void *pvParameters) {
 					vTaskResume(vT1n2ResetTaskHandle);
 					//Set the notification value of the task referenced by task1_countingHandle to 0x01
 					xTaskNotify(vCountingTask1Handle, 0x01, eSetValueWithOverwrite);
+					buttons.buttons[KEYCODE(A)] = 0;
 				}
 
 				if (go_task1 == 1) {
@@ -489,25 +489,26 @@ void vDrawShapesTask2(void *pvParameters) {
 					vTaskResume(vCountingTask2Handle);
 					vTaskResume(vT1n2ResetTaskHandle);
 					xSemaphoreGive(vCountingTask2_Semaphore);
+					buttons.buttons[KEYCODE(B)] = 0;
 				}
 				if (go_task2 == 1) {
 					vTaskResume(vCountingTask2Handle);
 					vTaskResume(vT1n2ResetTaskHandle);
-					sprintf(String1, "B: %d time", B_Count);
+					sprintf(String1, "B: %d ", B_Count);
 					if (!tumGetTextSize((char *)String1, &String1_width, NULL))
 					tumDrawText(String1,
-				    	(SCREEN_WIDTH * 5 / 6) - (String1_width / 2),
-				    	(SCREEN_HEIGHT * 6 / 10) -
+				    	(SCREEN_WIDTH / 6) - (String1_width / 2),
+				    	(SCREEN_HEIGHT * 9 / 10) -
 					    (DEFAULT_FONT_SIZE / 2),
 				    	Black);
 				}
 
 
-				//Timer Task that works and stops by pressing C Button
+				//Timer is controlled using C Button
 				sprintf(String2, "Timer: %d", Timer_Count);
 				if (!tumGetTextSize((char *)String2, &String2_width, NULL))
 					tumDrawText(String2,
-				    	(SCREEN_WIDTH / 6) - (String2_width / 2),
+				    	(SCREEN_WIDTH * 5/ 6) - (String2_width / 2),
 				    	(SCREEN_HEIGHT * 8 / 10) -
 					    (DEFAULT_FONT_SIZE / 2),
 				    	Black);
@@ -520,6 +521,7 @@ void vDrawShapesTask2(void *pvParameters) {
 					else {
 						vTaskResume(TimerTaskHandle);
 					}
+					buttons.buttons[KEYCODE(C)] = 0;
 				}
 
 				xSemaphoreGive(ScreenLock); 
