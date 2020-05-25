@@ -45,13 +45,13 @@
 
 static uint8_t Circle1Hz;
 static uint8_t Circle2Hz;
-static uint8_t A_Count = 0;
-static uint8_t B_Count = 0;
+static uint8_t UP_Count = 0;
+static uint8_t DOWN_Count = 0;
 static uint8_t Timer_Count = 0;
 
 
-const unsigned char next_state_signal = NEXT_TASK; //0
-const unsigned char prev_state_signak = PREV_TASK; //1
+const unsigned char next_state_signal = NEXT_TASK; 
+const unsigned char prev_state_signak = PREV_TASK; 
 
 static TaskHandle_t StateMachineTaskHandle = NULL;
 static TaskHandle_t vDrawShapesTask1Handle = NULL;
@@ -208,6 +208,54 @@ static int vCheckStateInput(void)
     return 0;
 }
 
+#define FPS_AVERAGE_COUNT 50
+
+void vDrawFPS(void)
+{
+	static unsigned int periods[FPS_AVERAGE_COUNT] = { 0 };
+	static unsigned int periods_total = 0;
+	static unsigned int index = 0;
+	static unsigned int average_count = 0;
+	static TickType_t xLastWakeTime = 0, prevWakeTime = 0;
+	static char str[10] = { 0 };
+	static int text_width;
+	int fps = 0;
+	font_handle_t cur_font = tumFontGetCurFontHandle();
+
+	xLastWakeTime = xTaskGetTickCount();
+
+	if (prevWakeTime != xLastWakeTime) {
+		periods[index] = configTICK_RATE_HZ / (xLastWakeTime - prevWakeTime);
+		prevWakeTime = xLastWakeTime;
+	}
+	else {
+	periods[index] = 0;
+	}
+
+	periods_total += periods[index];
+
+	if (index == (FPS_AVERAGE_COUNT - 1)) {
+		index = 0;
+	}
+	else {
+		index++;
+	}
+
+	if (average_count < FPS_AVERAGE_COUNT) {
+		average_count++;
+	}
+	else {
+		periods_total -= periods[index];
+	}
+
+	fps = periods_total / average_count;
+
+	sprintf(str, "FPS: %2d", fps);
+
+	if (!tumGetTextSize((char *)str, &text_width, NULL))
+	tumDrawText(str, (SCREEN_WIDTH * 5 / 6) - (text_width / 2),
+					 (SCREEN_HEIGHT * 9 / 10) - (DEFAULT_FONT_SIZE * 0.5),Skyblue);
+}
 
 void vDrawShapesTask1(void *pvParameters)
 {
@@ -361,6 +409,7 @@ void vBlinkingCircle2HzTask(void *pvParameters) {
 	}
 
 }
+
 void vBlinkingCircle1HzTask(void *pvParameters) {
 	while (1) {
 		Circle2Hz = 1;
@@ -371,15 +420,16 @@ void vBlinkingCircle1HzTask(void *pvParameters) {
 	}
 
 }
+
 void vCountingTask1() {
 	static char string[100];
 	static int string_width = 0;
 	while (1) {
 		uint32_t NotifiedValue;
 		if (xTaskNotifyWait(0x00,0xffffffff, &NotifiedValue, portMAX_DELAY) == pdTRUE) {
-			A_Count++ ;
+			UP_Count++ ;
 		}	
-		sprintf(string, "A: %d ", A_Count);
+		sprintf(string, "UP : %d ", UP_Count);
 		if (!tumGetTextSize((char *)string, &string_width, NULL))
 			tumDrawText(string,
 				    	(SCREEN_WIDTH / 6) - (string_width / 2),
@@ -393,7 +443,7 @@ void vCountingTask1() {
 void vCountingTask2() {
 	while (1) {
 		if ( xSemaphoreTake(vCountingTask2_Semaphore,portMAX_DELAY) == pdTRUE) {
-			B_Count++ ;
+			DOWN_Count++ ;
 		}
 
 	}
@@ -401,8 +451,8 @@ void vCountingTask2() {
 
 void vT1n2ResetTask() {
 	while (1) {
-		A_Count = 0;
-		B_Count = 0;
+		UP_Count = 0;
+		DOWN_Count = 0;
 		vTaskDelay(15000 / portTICK_PERIOD_MS);
 	}
 
@@ -419,12 +469,12 @@ void TimerTask() {
 void vDrawShapesTask2(void *pvParameters) {
 
 	const unsigned char next_state_signal = NEXT_TASK;
-	unsigned char go_task1=0, go_task2=0;
+	unsigned char UPtaskSignal=0, DOWNtaskSignal=0;
 	static uint8_t Task_Count = 0;
-	static char FPS_String[100];
+	//static char FPS_String[100];
 	static char String1[100];
 	static char String2[100];
-	static int FPS_String_width = 0;
+	//static int FPS_String_width = 0;
 	static int String1_width = 0;
 	static int String2_width = 0;
 
@@ -434,28 +484,10 @@ void vDrawShapesTask2(void *pvParameters) {
 
 				xGetButtonInput();
 				xSemaphoreTake(ScreenLock, portMAX_DELAY);
-				
-				/*if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
-				
-					if (buttons.buttons[KEYCODE(E)]) { 
-						xQueueSend(StateQueue,&next_state_signal,100);
-						buttons.buttons[KEYCODE(E)] = 0;
-					}	
-
-				xSemaphoreGive(buttons.lock);
-				}*/
 
 				tumDrawClear(White); // Clear screen
 
-		    	//FPS Display
-		        sprintf(FPS_String, "Frame rate: %d Hz", 1000 / 20);
-
-		 		if (!tumGetTextSize((char *)FPS_String, &FPS_String_width, NULL))
-					tumDrawText(FPS_String,
-				    	(SCREEN_WIDTH * 5 / 6) - (FPS_String_width / 2),
-				    	(SCREEN_HEIGHT * 9 / 10) -
-					    (DEFAULT_FONT_SIZE / 2),
-				    	Black);
+				vDrawFPS();
 
 		 		//Manipulating Blinking Circles
 				if (Circle1Hz == 1) {
@@ -468,33 +500,33 @@ void vDrawShapesTask2(void *pvParameters) {
 
 				
 
-				//Task that appears when pressing A
-				if (buttons.buttons[KEYCODE(A)]) {
-					go_task1 = 1 ;
+				//Task that appears when pressing UP
+				if (buttons.buttons[KEYCODE(UP)]) {
+					UPtaskSignal = 1 ;
 					vTaskResume(vCountingTask1Handle);
 					vTaskResume(vT1n2ResetTaskHandle);
-					//Set the notification value of the task referenced by task1_countingHandle to 0x01
+					//Sets the notification value vCountingTask1Handle to 0x01
 					xTaskNotify(vCountingTask1Handle, 0x01, eSetValueWithOverwrite);
-					buttons.buttons[KEYCODE(A)] = 0;
+					buttons.buttons[KEYCODE(UP)] = 0;
 				}
 
-				if (go_task1 == 1) {
+				if (UPtaskSignal == 1) {
 					vTaskResume(vCountingTask1Handle);
 					vTaskResume(vT1n2ResetTaskHandle);
 				}
 
-				//Task that appears when pressing B
-				if (buttons.buttons[KEYCODE(B)]) {
-					go_task2 = 1;
+				//Task that appears when pressing Down
+				if (buttons.buttons[KEYCODE(DOWN)]) {
+					DOWNtaskSignal = 1;
 					vTaskResume(vCountingTask2Handle);
 					vTaskResume(vT1n2ResetTaskHandle);
 					xSemaphoreGive(vCountingTask2_Semaphore);
-					buttons.buttons[KEYCODE(B)] = 0;
+					buttons.buttons[KEYCODE(DOWN)] = 0;
 				}
-				if (go_task2 == 1) {
+				if (DOWNtaskSignal == 1) {
 					vTaskResume(vCountingTask2Handle);
 					vTaskResume(vT1n2ResetTaskHandle);
-					sprintf(String1, "B: %d ", B_Count);
+					sprintf(String1, "DOWN : %d ", DOWN_Count);
 					if (!tumGetTextSize((char *)String1, &String1_width, NULL))
 					tumDrawText(String1,
 				    	(SCREEN_WIDTH / 6) - (String1_width / 2),
@@ -504,7 +536,7 @@ void vDrawShapesTask2(void *pvParameters) {
 				}
 
 
-				//Timer is controlled using C Button
+				//Timer is controlled using RIGHT Button
 				sprintf(String2, "Timer: %d", Timer_Count);
 				if (!tumGetTextSize((char *)String2, &String2_width, NULL))
 					tumDrawText(String2,
@@ -513,7 +545,7 @@ void vDrawShapesTask2(void *pvParameters) {
 					    (DEFAULT_FONT_SIZE / 2),
 				    	Black);
 
-				if (buttons.buttons[KEYCODE(C)]) {
+				if (buttons.buttons[KEYCODE(RIGHT)]) {
 					Task_Count++;
 					if (Task_Count % 2 != 0 ) {
 						vTaskSuspend(TimerTaskHandle);
@@ -521,7 +553,7 @@ void vDrawShapesTask2(void *pvParameters) {
 					else {
 						vTaskResume(TimerTaskHandle);
 					}
-					buttons.buttons[KEYCODE(C)] = 0;
+					buttons.buttons[KEYCODE(RIGHT)] = 0;
 				}
 
 				xSemaphoreGive(ScreenLock); 
