@@ -13,22 +13,28 @@ This document states fuctionalities when running the solution program for Exerci
 
 ## Instructions for Exercise 2 and 3
 
-Main functionalities: 
+    Main functionalities: 
 
-- Press Q to quit.
-- Press E to switch states/screens.
+    - Press Q to quit.
+    - Press E to switch states/screens.
 
-- First screen:
-        -Press A, B, C or D to increase the respective value by 1.
-        -Press Right Mouse Click to reinitialize values back to 0.
+    - First screen:
 
-- Second screen:
-        -Press UP to trigger task that counts number of times UP was pressed.
-        -Press DOWN to trigger task that counts number of times DOWN was pressed.
-        -Press LEFT to pause/resume Timer on the right side of the screen.
+            -Press A, B, C or D to increase the respective value by 1.
 
-- Third Screen:
-        - No Presses
+            -Press Right Mouse Click to reinitialize values back to 0.
+
+    - Second screen:
+
+            -Press UP to trigger task that counts number of times UP was pressed.
+
+            -Press DOWN to trigger task that counts number of times DOWN was pressed.
+
+            -Press RIGHT to pause/resume Timer on the right side of the screen.
+
+    - Third Screen:
+
+            - No Presses
 
 
 ## 
