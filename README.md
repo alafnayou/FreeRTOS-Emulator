@@ -3,7 +3,15 @@
 
 This document states fuctionalities when running the solution program for Exercise 2 and 3, as well as answers for the theoretical questions. 
 
-## Instructions
+## Github username and Tags for Git Tutorial
+
+    -Username : alafnayou
+    -Tags : 
+            -Coding.Challenge.2
+            -Coding.Challenge.3
+
+
+## Instructions for Exercise 2 and 3
 
 Main functionalities: 
 

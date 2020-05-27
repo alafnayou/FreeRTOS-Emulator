@@ -93,6 +93,8 @@ static buttons_buffer_t buttons = { 0 };
 
 StaticTask_t xTaskBuffer;
 StackType_t xStack[ STACK_SIZE ]; 
+static StaticTask_t xIdleTaskTCB;
+static StackType_t uxIdleTaskStack[ configMINIMAL_STACK_SIZE ];
 
 
 void changeState(volatile unsigned char *state, unsigned char forwards)
@@ -124,8 +126,6 @@ void basicSequentialStateMachine(void *pvParameters)
     unsigned char current_state = STARTING_STATE; // Default state
     unsigned char state_changed = 1; // Only re-evaluate state if it has changed
     unsigned char input = 0;
-
-    //const int state_change_period = STATE_DEBOUNCE_DELAY;
 
     while (1) {
         if (state_changed) {
@@ -691,8 +691,6 @@ StackType_t **ppxIdleTaskStackBuffer,
 uint32_t *pulIdleTaskStackSize )
 {
 
-static StaticTask_t xIdleTaskTCB;
-static StackType_t uxIdleTaskStack[ configMINIMAL_STACK_SIZE ];
 
 *ppxIdleTaskTCBBuffer = &xIdleTaskTCB;
 
@@ -785,11 +783,12 @@ int main(int argc, char *argv[])
 
 	xTaskCreate(vBlinkingCircle2HzTask, "BlinkingCircle2HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
 			configMAX_PRIORITIES -3, &vBlinkingCircle2HzTaskHandle) ;
-	xTaskCreate(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask", mainGENERIC_STACK_SIZE * 2, NULL,
-			configMAX_PRIORITIES -4, &vBlinkingCircle1HzTaskHandle) ;
-    		//vBlinkingCircle1HzTaskHandle= xTaskCreateStatic(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask",
-			//STACK_SIZE,NULL, configMAX_PRIORITIES - 5,xStack, &xTaskBuffer);
-	vCountingTask2_Semaphore = xSemaphoreCreateBinary(); // binary Semaphore for counting task
+
+    vBlinkingCircle1HzTaskHandle = xTaskCreateStatic(vBlinkingCircle1HzTask, "BlinkingCircle1HzTask",
+			STACK_SIZE,NULL, configMAX_PRIORITIES - 4,xStack, &xTaskBuffer);
+
+	vCountingTask2_Semaphore = xSemaphoreCreateBinary(); // Binary Semaphore for CountingTask
+
     xTaskCreate(vCountingTask1, "CountingTask1", 1000, NULL, configMAX_PRIORITIES - 5, &vCountingTask1Handle);
     xTaskCreate(vCountingTask2, "CountingTask2", 1000, NULL, configMAX_PRIORITIES - 6,&vCountingTask2Handle);
     xTaskCreate(vT1n2ResetTask, "T1n2ResetTask", 1000, NULL, configMAX_PRIORITIES - 6,&vT1n2ResetTaskHandle);
