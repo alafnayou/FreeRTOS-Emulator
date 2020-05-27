@@ -622,7 +622,7 @@ void Task4() {
 void OutputTask(void *pvParameters) {
 
 	const unsigned char next_state_signal = NEXT_TASK;
-	static uint8_t x = SCREEN_WIDTH / 6, y = SCREEN_HEIGHT / 15;
+	static int x = SCREEN_WIDTH / 8, y = SCREEN_HEIGHT / 15;
 	static char String[100];
 	static int String_width = 0;
 	static int globalString_width = 0;
@@ -638,17 +638,16 @@ void OutputTask(void *pvParameters) {
 	vTaskSuspend(Task3Handle);
 	vTaskSuspend(Task4Handle);
 
-	// tumDrawClear(White); // Clear screen
+	
 	xSemaphoreTake(ScreenLock, portMAX_DELAY);
-	//ESPL_DrawLayer();
 	tumDrawClear(White); // Clear screen
-	//gdispDrawString(80, 10, "wait 15 seconds", font1, Black);
-	sprintf(String, "The 15 seconds Count strted");
+	
+	sprintf(String, "The 15 seconds Count has started");
 	if (!tumGetTextSize((char *)String, &String_width, NULL))
-	tumDrawText(String,(SCREEN_WIDTH * 5/ 6) - (String_width / 2),
+	tumDrawText(String,(SCREEN_WIDTH * 4 / 6) - (String_width / 2),
 				    	(SCREEN_HEIGHT / 10) -
 					    (DEFAULT_FONT_SIZE / 2),
-				    	Red);
+				    	Silver);
 
 	vTaskResume(Task1Handle);
 	vTaskResume(Task2Handle);
@@ -672,7 +671,7 @@ void OutputTask(void *pvParameters) {
 					if (!tumGetTextSize((char *)globalString, &globalString_width, NULL))
 					tumDrawText(globalString, x - (globalString_width / 2),
 				    							y - (DEFAULT_FONT_SIZE / 2),
-				    							Red);
+				    							Lime);
 					y += 30;
 				}
 
